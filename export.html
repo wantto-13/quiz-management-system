@@ -19,7 +19,7 @@
           <h2 id="quizTitle" style="margin:0;">Loading Table...</h2>
           <p id="recordCountText" style="color:#64748b; font-size:13.5px; margin-top:4px;"></p>
         </div>
-        <div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button onclick="downloadCSV()" class="btn btn-success">📥 Download CSV</button>
           <button onclick="clearAllResponses()" class="btn btn-danger">🗑 Clear All Responses</button>
         </div>
@@ -52,17 +52,16 @@
       }
 
       try {
-        // Fetch quiz details from Google Sheet
-        const qRes = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const qRes = await fetch(`${SHEETDB_URL}?sheet=quizzes`);
         const qData = await qRes.json();
-        if (!qData || qData.length === 0) {
+        quiz = Array.isArray(qData) ? qData.find(q => Number(q.id) === Number(quizId)) : null;
+        
+        if (!quiz) {
           document.getElementById('quizTitle').innerText = 'Quiz not found!';
           return;
         }
-        quiz = qData[0];
         quiz.fields = quiz.fields ? JSON.parse(quiz.fields) : [];
 
-        // Enforce password security on direct URL load
         if (quiz.password) {
           const pwd = prompt("Enter password to view Table & CSV data:");
           if (pwd !== quiz.password) {

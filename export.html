@@ -38,28 +38,63 @@
   </div>
 
   <script>
+    const SHEETDB_URL = 'https://sheetdb.io/api/v1/q8x7kiy49blc5';
     const params = new URLSearchParams(window.location.search);
     const quizId = Number(params.get('id'));
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-    const quiz = quizzes.find(q => q.id === quizId);
 
-    // Enforce password security on direct URL load
-    if (quiz && quiz.password) {
-      const pwd = prompt("Enter password to view Table & CSV data:");
-      if (pwd !== quiz.password) {
-        alert("Incorrect password!");
-        window.location.href = "index.html";
+    let quiz = null;
+    let records = [];
+
+    async function init() {
+      if (!quizId) {
+        document.getElementById('quizTitle').innerText = 'Invalid Quiz ID!';
+        return;
+      }
+
+      try {
+        // Fetch quiz details from Google Sheet
+        const qRes = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const qData = await qRes.json();
+        if (!qData || qData.length === 0) {
+          document.getElementById('quizTitle').innerText = 'Quiz not found!';
+          return;
+        }
+        quiz = qData[0];
+        quiz.fields = quiz.fields ? JSON.parse(quiz.fields) : [];
+
+        // Enforce password security on direct URL load
+        if (quiz.password) {
+          const pwd = prompt("Enter password to view Table & CSV data:");
+          if (pwd !== quiz.password) {
+            alert("Incorrect password!");
+            window.location.href = "index.html";
+            return;
+          }
+        }
+
+        await loadRecords();
+      } catch (err) {
+        console.error('Error loading quiz data:', err);
+        document.getElementById('quizTitle').innerText = 'Error connecting to Google Sheet.';
       }
     }
 
-    let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-    let records = allRecords[quizId] || [];
+    async function loadRecords() {
+      try {
+        const rRes = await fetch(`${SHEETDB_URL}?sheet=records`);
+        const allRecords = await rRes.json();
+        records = Array.isArray(allRecords) 
+          ? allRecords.filter(r => Number(r.quiz_id) === Number(quizId))
+          : [];
+        renderTable();
+      } catch (err) {
+        console.error('Error loading records:', err);
+        alert('Could not load responses from cloud.');
+      }
+    }
 
     function renderTable() {
-      if (!quiz) {
-        document.getElementById('quizTitle').innerText = 'Quiz not found!';
-        return;
-      }
+      if (!quiz) return;
       document.getElementById('quizTitle').innerText = quiz.title + ' — Data Table';
       document.getElementById('recordCountText').innerText = `Total Rows Collected: ${records.length}`;
 
@@ -80,35 +115,40 @@
 
       let htmlBody = '';
       records.forEach((rec, index) => {
+        const valuesArr = typeof rec.values === 'string' ? JSON.parse(rec.values) : (rec.values || []);
         htmlBody += `<tr>
           <td><b>${index + 1}</b></td>
           <td><span style="color:#64748b; font-size:12px;">${escapeHTML(rec.timestamp)}</span></td>`;
         
         quiz.fields.forEach((f, fIdx) => {
-          const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
+          const val = valuesArr[fIdx] !== undefined ? valuesArr[fIdx] : '';
           htmlBody += `<td>${escapeHTML(val)}</td>`;
         });
 
-        htmlBody += `<td><button onclick="deleteRow(${index})" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0;">🗑 Delete</button></td>`;
+        htmlBody += `<td><button onclick="deleteRow(${rec.id})" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0;">🗑 Delete</button></td>`;
         htmlBody += `</tr>`;
       });
       bodyRow.innerHTML = htmlBody;
     }
 
-    function deleteRow(rowIndex) {
-      if (!confirm(`Delete row #${rowIndex + 1}?`)) return;
-      records.splice(rowIndex, 1);
-      allRecords[quizId] = records;
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-      renderTable();
+    async function deleteRow(recordId) {
+      if (!confirm(`Delete this response row?`)) return;
+      try {
+        await fetch(`${SHEETDB_URL}/id/${recordId}?sheet=records`, { method: 'DELETE' });
+        await loadRecords();
+      } catch (err) {
+        alert('Error deleting row: ' + err.message);
+      }
     }
 
-    function clearAllResponses() {
-      if (!confirm('Clear all collected responses for this quiz?')) return;
-      records = [];
-      allRecords[quizId] = [];
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-      renderTable();
+    async function clearAllResponses() {
+      if (!confirm('Clear all collected responses for this quiz from Google Sheet?')) return;
+      try {
+        await fetch(`${SHEETDB_URL}/quiz_id/${quizId}?sheet=records`, { method: 'DELETE' });
+        await loadRecords();
+      } catch (err) {
+        alert('Error clearing responses: ' + err.message);
+      }
     }
 
     function escapeCSV(val) {
@@ -126,15 +166,15 @@
       }
       let csvRows = [];
       
-      // Export ONLY the quiz fields/questions as headers (No Row/Timestamp)
       let headers = [];
       quiz.fields.forEach(f => headers.push(escapeCSV(f.label)));
       csvRows.push(headers.join(','));
 
       records.forEach((rec) => {
+        const valuesArr = typeof rec.values === 'string' ? JSON.parse(rec.values) : (rec.values || []);
         let row = [];
         quiz.fields.forEach((f, fIdx) => {
-          const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
+          const val = valuesArr[fIdx] !== undefined ? valuesArr[fIdx] : '';
           row.push(escapeCSV(val));
         });
         csvRows.push(row.join(','));
@@ -156,7 +196,7 @@
       }[m]));
     }
 
-    renderTable();
+    init();
   </script>
 </body>
 </html>

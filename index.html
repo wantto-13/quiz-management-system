@@ -9,12 +9,37 @@
 <body>
 
   <nav>
-    <a href="index.html" class="brand">📋 Quiz Management System</a>
-    <a href="create.html" class="btn btn-success">+ Create Quiz</a>
+    <a href="index.html" class="brand">⚡ Quiz Management System</a>
+    <a href="create.html" class="btn btn-primary">+ Create New Quiz</a>
   </nav>
 
   <div class="container">
-    <h2>Active Quizzes & Data Tables</h2>
+    <div class="hero-header">
+      <div>
+        <h1>Workspace Dashboard</h1>
+        <p>Create forms, collect participant responses, and export clean CSV tables.</p>
+      </div>
+      <div style="min-width: 250px;">
+        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="margin:0;">
+      </div>
+    </div>
+
+    <!-- Live Summary Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Quizzes</div>
+        <div class="stat-value" id="statQuizzes">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Rows Collected</div>
+        <div class="stat-value" id="statRows" style="color: #10b981;">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Database Engine</div>
+        <div class="stat-value" style="font-size: 1.35rem; color: #0f172a; margin-top: 10px;">CSV / LocalStorage</div>
+      </div>
+    </div>
+
     <div id="quizList"></div>
   </div>
 
@@ -22,31 +47,43 @@
     function renderDashboard() {
       const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
       const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      const query = document.getElementById('searchInput').value.toLowerCase();
+
+      // Update Top Stat Cards
+      let totalRows = 0;
+      quizzes.forEach(q => totalRows += (allRecords[q.id] || []).length);
+      document.getElementById('statQuizzes').innerText = quizzes.length;
+      document.getElementById('statRows').innerText = totalRows;
+
       const list = document.getElementById('quizList');
       list.innerHTML = '';
 
-      if (quizzes.length === 0) {
+      const filtered = quizzes.filter(q => q.title.toLowerCase().includes(query));
+
+      if (filtered.length === 0) {
         list.innerHTML = `
-          <div class="card">
-            <p>No quizzes created yet. Click <b>+ Create Quiz</b> to build your first data collection form.</p>
+          <div class="card" style="text-align:center; padding: 3rem 1.5rem;">
+            <h3>No quizzes found</h3>
+            <p style="color:#64748b; margin-bottom:1rem;">Click <b>+ Create New Quiz</b> in the top bar to set up a new database table.</p>
+            <a href="create.html" class="btn btn-primary">+ Create First Quiz</a>
           </div>`;
         return;
       }
 
-      quizzes.forEach(quiz => {
+      filtered.forEach(quiz => {
         const recordCount = (allRecords[quiz.id] || []).length;
         const card = document.createElement('div');
         card.className = 'card quiz-row';
         card.innerHTML = `
           <div>
             <h3>${quiz.title}</h3>
-            <span class="badge">${quiz.fields.length} Columns</span>
-            <span class="badge">${recordCount} Rows Collected</span>
+            <span class="badge">📊 ${quiz.fields.length} Columns</span>
+            <span class="badge badge-green">🗂️ ${recordCount} Rows Collected</span>
           </div>
           <div>
-            <a href="take.html?id=${quiz.id}" class="btn btn-primary">Give Quiz</a>
-            <a href="export.html?id=${quiz.id}" class="btn btn-info">View Table / CSV</a>
-            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">Delete</button>
+            <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
+            <a href="export.html?id=${quiz.id}" class="btn btn-info">📥 Table & CSV</a>
+            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑 Delete</button>
           </div>
         `;
         list.appendChild(card);

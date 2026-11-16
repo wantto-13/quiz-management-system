@@ -3,31 +3,126 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quiz Management System</title>
+  <title>Quiz Management System - Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      margin: 0;
+    }
+    .quiz-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-left: 5px solid #4f46e5;
+      border-radius: 14px;
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+      transition: all 0.2s ease;
+    }
+    .quiz-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      border-color: #cbd5e1;
+    }
+    .quiz-meta {
+      flex: 1;
+      min-width: 240px;
+    }
+    .quiz-desc {
+      color: #64748b;
+      font-size: 0.88rem;
+      margin: 4px 0 8px;
+    }
+    .cat-pill {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .action-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .action-group .btn {
+      margin: 0;
+    }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      z-index: 300;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
 </head>
 <body>
 
   <nav>
     <a href="index.html" class="brand">⚡ Quiz Management System</a>
-    <a href="create.html" class="btn btn-primary">+ Create New Quiz</a>
+    <a href="create.html" class="btn-create">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Create New Quiz
+    </a>
   </nav>
 
   <div class="container">
     <div class="hero-header">
       <div>
         <h1>Workspace Dashboard</h1>
-        <p>Create forms, collect participant responses, and export clean CSV tables.</p>
+        <p>Manage quizzes, share forms, and export structured CSV database tables.</p>
       </div>
-      <div style="min-width: 250px;">
-        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="margin:0;">
+      <div class="filter-bar">
+        <select id="categoryFilter" onchange="renderDashboard()" style="width: 175px;">
+          <option value="ALL">All Categories</option>
+          <option value="General">General</option>
+          <option value="Academic Quiz">Academic Quiz</option>
+          <option value="Data Survey">Data Survey</option>
+          <option value="Event Registration">Event Registration</option>
+          <option value="Feedback">Feedback</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="width: 220px;">
       </div>
     </div>
 
     <!-- Live Summary Stats -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-label">Total Quizzes</div>
+        <div class="stat-label">Active Quizzes</div>
         <div class="stat-value" id="statQuizzes">0</div>
       </div>
       <div class="stat-card">
@@ -35,76 +130,71 @@
         <div class="stat-value" id="statRows" style="color: #10b981;">0</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Database Engine</div>
-        <div class="stat-value" style="font-size: 1.35rem; color: #0f172a; margin-top: 10px;">CSV / LocalStorage</div>
+        <div class="stat-label">Total Columns Defined</div>
+        <div class="stat-value" id="statCols" style="color: #0ea5e9;">0</div>
       </div>
     </div>
 
+    <!-- Quiz List Container -->
     <div id="quizList"></div>
   </div>
 
-  <script>
-    function renderDashboard() {
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-      const query = document.getElementById('searchInput').value.toLowerCase();
+  <!-- Notification Toast -->
+  <div id="toast" class="toast">Link copied to clipboard!</div>
 
-      // Update Top Stat Cards
+  <script>
+    // Safely read JSON from localStorage without crashing on corrupted data
+    function safeGetJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (err) {
+        console.error(`Storage read error for ${key}:`, err); return fallback; } }  // Prevent HTML injection from user-typed titles/descriptions function escapeHTML(str) { return String(str \vert{}\vert{} '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }  function showToast(message) { const toast = document.getElementById('toast'); toast.innerText = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2500); }  function copyQuizLink(quizId) { const shareUrl = new URL(`take.html?id=${quizId}`, window.location.href).href;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl)
+          .then(() => showToast('✅ Quiz link copied!'))
+          .catch(() => prompt('Copy this quiz link:', shareUrl));
+      } else {
+        prompt('Copy this quiz link:', shareUrl);
+      }
+    }
+
+    function renderDashboard() {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const allRecords = safeGetJSON('qms_records', {});
+      const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
+      const selectedCategory = document.getElementById('categoryFilter').value;
+
+      // Calculate KPI Metrics safely
       let totalRows = 0;
-      quizzes.forEach(q => totalRows += (allRecords[q.id] || []).length);
+      let totalCols = 0;
+      quizzes.forEach(q => {
+        const fieldsArr = Array.isArray(q.fields) ? q.fields : [];
+        const recsArr = Array.isArray(allRecords[q.id]) ? allRecords[q.id] : [];
+        totalCols += fieldsArr.length;
+        totalRows += recsArr.length;
+      });
+
       document.getElementById('statQuizzes').innerText = quizzes.length;
       document.getElementById('statRows').innerText = totalRows;
+      document.getElementById('statCols').innerText = totalCols;
 
       const list = document.getElementById('quizList');
       list.innerHTML = '';
 
-      const filtered = quizzes.filter(q => q.title.toLowerCase().includes(query));
+      // Apply Search + Category Filter
+      const filtered = quizzes.filter(q => {
+        const titleMatch = (q.title || '').toLowerCase().includes(searchQuery);
+        const cat = q.category || 'General';
+        const catMatch = (selectedCategory === 'ALL') || (cat === selectedCategory);
+        return titleMatch && catMatch;
+      });
 
       if (filtered.length === 0) {
+        const isEmptyWorkspace = quizzes.length === 0;
         list.innerHTML = `
-          <div class="card" style="text-align:center; padding: 3rem 1.5rem;">
-            <h3>No quizzes found</h3>
-            <p style="color:#64748b; margin-bottom:1rem;">Click <b>+ Create New Quiz</b> in the top bar to set up a new database table.</p>
-            <a href="create.html" class="btn btn-primary">+ Create First Quiz</a>
-          </div>`;
-        return;
-      }
-
-      filtered.forEach(quiz => {
-        const recordCount = (allRecords[quiz.id] || []).length;
-        const card = document.createElement('div');
-        card.className = 'card quiz-row';
-        card.innerHTML = `
-          <div>
-            <h3>${quiz.title}</h3>
-            <span class="badge">📊 ${quiz.fields.length} Columns</span>
-            <span class="badge badge-green">🗂️ ${recordCount} Rows Collected</span>
-          </div>
-          <div>
-            <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
-            <a href="export.html?id=${quiz.id}" class="btn btn-info">📥 Table & CSV</a>
-            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑 Delete</button>
-          </div>
-        `;
-        list.appendChild(card);
-      });
-    }
-
-    function deleteQuiz(id) {
-      if (!confirm('Delete this quiz and all its collected table data?')) return;
-
-      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      quizzes = quizzes.filter(q => q.id !== id);
-      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
-
-      let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-      delete allRecords[id];
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-
-      renderDashboard();
-    }
-
-    renderDashboard();
-  </script>
-</body>
-</html>
+          <div class="card" style="text-align:center; padding: 3.2rem 1.5rem;">
+            <h3>${isEmptyWorkspace ? 'No quizzes created yet' : 'No matching quizzes found'}</h3>
+            <p style="color:#64748b; margin-bottom:1.3rem;">
+              ${isEmptyWorkspace
+                ? 'Build your first quiz or

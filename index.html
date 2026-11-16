@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="brand">📋 Quiz Management System</a>
+    <a href="create.html" class="btn btn-success">+ Create Quiz</a>
+  </nav>
+
+  <div class="container">
+    <h2>Active Quizzes & Data Tables</h2>
+    <div id="quizList"></div>
+  </div>
+
+  <script>
+    function renderDashboard() {
+      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      const list = document.getElementById('quizList');
+      list.innerHTML = '';
+
+      if (quizzes.length === 0) {
+        list.innerHTML = `
+          <div class="card">
+            <p>No quizzes created yet. Click <b>+ Create Quiz</b> to build your first data collection form.</p>
+          </div>`;
+        return;
+      }
+
+      quizzes.forEach(quiz => {
+        const recordCount = (allRecords[quiz.id] || []).length;
+        const card = document.createElement('div');
+        card.className = 'card quiz-row';
+        card.innerHTML = `
+          <div>
+            <h3>${quiz.title}</h3>
+            <span class="badge">${quiz.fields.length} Columns</span>
+            <span class="badge">${recordCount} Rows Collected</span>
+          </div>
+          <div>
+            <a href="take.html?id=${quiz.id}" class="btn btn-primary">Give Quiz</a>
+            <a href="export.html?id=${quiz.id}" class="btn btn-info">View Table / CSV</a>
+            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">Delete</button>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function deleteQuiz(id) {
+      if (!confirm('Delete this quiz and all its collected table data?')) return;
+
+      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      quizzes = quizzes.filter(q => q.id !== id);
+      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
+
+      let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      delete allRecords[id];
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+
+      renderDashboard();
+    }
+
+    renderDashboard();
+  </script>
+</body>
+</html>

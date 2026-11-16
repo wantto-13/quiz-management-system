@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Quiz - Quiz Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="brand">📋 Quiz Management System</a>
+    <a href="index.html">← Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>Create New Quiz / Data Form</h2>
+      <label><b>Quiz / Table Title</b></label>
+      <input type="text" id="quizTitle" placeholder="e.g., Student Registration & Tech Quiz" required>
+
+      <div id="fieldsContainer"></div>
+
+      <button type="button" class="btn btn-secondary" onclick="addField()">+ Add Question / Column</button>
+      <button type="button" class="btn btn-success" onclick="saveQuiz()">Save Quiz</button>
+    </div>
+  </div>
+
+  <script>
+    let fieldCount = 0;
+
+    function addField() {
+      fieldCount++;
+      const div = document.createElement('div');
+      div.className = 'card field-box';
+      div.id = `field_${fieldCount}`;
+      div.style.background = '#f8fafc';
+
+      div.innerHTML = `
+        <h4>Question / Column #${fieldCount}</h4>
+        <input type="text" class="f-label" placeholder="Question or Column Name (e.g., Full Name, Roll No, Q1 Answer)" required>
+
+        <label>Input Type:</label>
+        <select class="f-type" onchange="toggleOptions(this, ${fieldCount})">
+          <option value="text">Short Text (Name, Email, Answer)</option>
+          <option value="number">Number (Age, Roll No, Score)</option>
+          <option value="mcq">Multiple Choice (Single Select)</option>
+          <option value="rating">Rating Scale (1 to 5)</option>
+        </select>
+
+        <div id="optBox_${fieldCount}" style="display:none;">
+          <label>Options (comma separated):</label>
+          <input type="text" class="f-options" placeholder="e.g., Option A, Option B, Option C">
+        </div>
+
+        <button type="button" class="btn btn-danger" onclick="document.getElementById('field_${fieldCount}').remove()">Remove</button>
+      `;
+      document.getElementById('fieldsContainer').appendChild(div);
+    }
+
+    function toggleOptions(selectEl, id) {
+      document.getElementById(`optBox_${id}`).style.display = selectEl.value === 'mcq' ? 'block' : 'none';
+    }
+
+    function saveQuiz() {
+      const title = document.getElementById('quizTitle').value.trim();
+      if (!title) return alert('Enter a Quiz Title!');
+
+      const boxes = document.querySelectorAll('.field-box');
+      if (boxes.length === 0) return alert('Add at least one question/column!');
+
+      const fields = [];
+      for (let box of boxes) {
+        const label = box.querySelector('.f-label').value.trim();
+        const type = box.querySelector('.f-type').value;
+        if (!label) return alert('Fill in all question/column names!');
+
+        let options = [];
+        if (type === 'mcq') {
+          options = box.querySelector('.f-options').value
+            .split(',').map(o => o.trim()).filter(o => o !== '');
+          if (options.length < 2) return alert(`Add at least 2 options for "${label}"`);
+        } else if (type === 'rating') {
+          options = ['1', '2', '3', '4', '5'];
+        }
+
+        fields.push({ label, type, options });
+      }
+
+      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      quizzes.push({
+        id: Date.now(),
+        title: title,
+        fields: fields
+      });
+      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
+
+      alert('Quiz created successfully!');
+      window.location.href = 'index.html';
+    }
+
+    addField();
+  </script>
+</body>
+</html>

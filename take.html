@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Give Quiz - Quiz Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="brand">📋 Quiz Management System</a>
+    <a href="index.html">← Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2 id="quizTitle">Loading...</h2>
+      <form id="quizForm">
+        <div id="questionsList"></div>
+        <button type="submit" class="btn btn-primary">Submit Response</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const quizId = Number(params.get('id'));
+    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+    const quiz = quizzes.find(q => q.id === quizId);
+
+    if (!quiz) {
+      document.getElementById('quizTitle').innerText = 'Quiz not found!';
+      document.getElementById('quizForm').style.display = 'none';
+    } else {
+      document.getElementById('quizTitle').innerText = quiz.title;
+      const container = document.getElementById('questionsList');
+
+      quiz.fields.forEach((field, idx) => {
+        const box = document.createElement('div');
+        box.className = 'card';
+        box.style.background = '#f8fafc';
+
+        let inputHTML = '';
+        if (field.type === 'text') {
+          inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter your answer..." required>`;
+        } else if (field.type === 'number') {
+          inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter a number..." required>`;
+        } else {
+          field.options.forEach(opt => {
+            const display = field.type === 'rating' ? `${opt} ★` : opt;
+            inputHTML += `
+              <label class="option-label">
+                <input type="radio" name="col_${idx}" value="${opt}" required> ${display}
+              </label>`;
+          });
+        }
+
+        box.innerHTML = `<p><b>${idx + 1}. ${field.label}</b></p>${inputHTML}`;
+        container.appendChild(box);
+      });
+    }
+
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const rowValues = quiz.fields.map((field, idx) => {
+        if (field.type === 'text' || field.type === 'number') {
+          return document.querySelector(`[name="col_${idx}"]`).value.trim();
+        } else {
+          return document.querySelector(`input[name="col_${idx}"]:checked`).value;
+        }
+      });
+
+      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      if (!allRecords[quizId]) allRecords[quizId] = [];
+
+      allRecords[quizId].push({
+        timestamp: new Date().toLocaleString(),
+        values: rowValues
+      });
+
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+
+      alert('Response recorded into database!');
+      window.location.href = `export.html?id=${quizId}`;
+    });
+  </script>
+</body>
+</html>

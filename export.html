@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database & CSV Export - Quiz Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="brand">📋 Quiz Management System</a>
+    <a href="index.html">← Dashboard</a>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <div class="quiz-row">
+        <div>
+          <h2 id="tableTitle">Database Table</h2>
+          <p id="rowSummary">0 Rows Collected</p>
+        </div>
+        <div>
+          <button onclick="downloadCSV()" class="btn btn-success">⬇ Download CSV File</button>
+          <button onclick="clearTableData()" class="btn btn-danger">Clear Rows</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="dataTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const quizId = Number(params.get('id'));
+    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+    const quiz = quizzes.find(q => q.id === quizId);
+
+    const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+    const rows = allRecords[quizId] || [];
+
+    function renderTable() {
+      if (!quiz) {
+        document.getElementById('tableTitle').innerText = 'Quiz not found!';
+        return;
+      }
+
+      document.getElementById('tableTitle').innerText = `Database: ${quiz.title}`;
+      document.getElementById('rowSummary').innerText = `Total Records: ${rows.length}`;
+
+      // Build Headers
+      const headers = ['Row_ID', 'Timestamp', ...quiz.fields.map(f => f.label)];
+      document.getElementById('tableHead').innerHTML =
+        `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+      // Build Rows
+      const tbody = document.getElementById('tableBody');
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${headers.length}">No responses yet. Go to "Give Quiz" to collect data.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map((row, index) => {
+        const cells = [index + 1, row.timestamp, ...row.values];
+        return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+      }).join('');
+    }
+
+    function downloadCSV() {
+      if (!quiz || rows.length === 0) {
+        return alert('No data rows available to export!');
+      }
+
+      // Escape values safely for CSV format
+      const escapeCSV = (val) => `"${String(val).replace(/"/g, '""')}"`;
+
+      const headers = ['Row_ID', 'Timestamp', ...quiz.fields.map(f => f.label)];
+      const csvLines = [headers.map(escapeCSV).join(',')];
+
+      rows.forEach((row, index) => {
+        const line = [index + 1, row.timestamp, ...row.values];
+        csvLines.push(line.map(escapeCSV).join(','));
+      });
+
+      const csvContent = csvLines.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      const fileName = quiz.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_data.csv';
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function clearTableData() {
+      if (!confirm('Clear all collected responses for this quiz?')) return;
+      allRecords[quizId] = [];
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+      location.reload();
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>

@@ -167,14 +167,54 @@
     }
 
     function copyQuizLink(quizId) {
-      const shareUrl = new URL(`take.html?id=${quizId}`, window.location.href).href;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(shareUrl)
-          .then(() => showToast('✅ Quiz link copied!'))
-          .catch(() => prompt('Copy this quiz link:', shareUrl));
-      } else {
-        prompt('Copy this quiz link:', shareUrl);
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return alert('Quiz not found!');
+
+      try {
+        const jsonStr = JSON.stringify(quiz);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        const shareUrl = new URL(`take.html?quiz=${encoded}`, window.location.href).href;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl)
+            .then(() => showToast('✅ Self-contained quiz link copied!'))
+            .catch(() => prompt('Copy this quiz link:', shareUrl));
+        } else {
+          prompt('Copy this quiz link:', shareUrl);
+        }
+      } catch (err) {
+        console.error('Error encoding quiz link:', err);
+        alert('Could not generate share link.');
       }
+    }
+
+    function secureEdit(quizId) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return;
+
+      if (quiz.password) {
+        const pwd = prompt("Enter password to edit this quiz:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+      window.location.href = `create.html?id=${quizId}`;
+    }
+
+    function secureExport(quizId) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return;
+
+      if (quiz.password) {
+        const pwd = prompt("Enter password to view Table & CSV:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+      window.location.href = `export.html?id=${quizId}`;
     }
 
     function renderDashboard() {
@@ -234,12 +274,13 @@
         const descHTML = quiz.description
           ? `<p class="quiz-desc">${escapeHTML(quiz.description)}</p>`
           : '';
+        const lockIcon = quiz.password ? ' 🔒' : '';
 
         const card = document.createElement('div');
         card.className = 'quiz-card';
         card.innerHTML = `
           <div class="quiz-meta">
-            <h3>${escapeHTML(quiz.title)} <span class="cat-pill">${category}</span></h3>
+            <h3>${escapeHTML(quiz.title)}${lockIcon} <span class="cat-pill">${category}</span></h3>
             ${descHTML}
             <div>
               <span class="badge">📊 ${fieldsCount} Columns</span>
@@ -248,8 +289,8 @@
           </div>
           <div class="action-group">
             <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
-            <a href="create.html?id=${quiz.id}" class="btn btn-secondary">✏️ Edit</a>
-            <a href="export.html?id=${quiz.id}" class="btn btn-info">📥 Table & CSV</a>
+            <button type="button" onclick="secureEdit(${quiz.id})" class="btn btn-secondary">✏️ Edit</button>
+            <button type="button" onclick="secureExport(${quiz.id})" class="btn btn-info">📥 Table & CSV</button>
             <button type="button" onclick="copyQuizLink(${quiz.id})" class="btn btn-secondary" title="Copy Shareable Link">🔗 Share</button>
             <button type="button" onclick="deleteQuiz(${quiz.id})" class="btn btn-danger" title="Delete Quiz">🗑</button>
           </div>
@@ -259,11 +300,19 @@
     }
 
     function deleteQuiz(id) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === id);
+      if (quiz && quiz.password) {
+        const pwd = prompt("Enter password to delete this quiz:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+
       if (!confirm('Delete this quiz and all its collected table data permanently?')) return;
 
-      let quizzes = safeGetJSON('qms_quizzes', []);
-      quizzes = quizzes.filter(q => q.id !== id);
-      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
+      let updatedQuizzes = quizzes.filter(q => q.id !== id);
+      localStorage.setItem('qms_quizzes', JSON.stringify(updatedQuizzes));
 
       let allRecords = safeGetJSON('qms_records', {});
       delete allRecords[id];

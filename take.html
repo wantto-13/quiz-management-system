@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Take Quiz - QMS</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <nav>
@@ -29,35 +28,24 @@
     <div id="thankYouCard" class="card" style="display:none; text-align:center; padding: 4rem 2rem; border-top: 5px solid #10b981;">
       <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
       <h2>Thank You!</h2>
-      <p style="margin: 0.5rem 0 1.5rem;">Your response has been successfully recorded in the cloud.</p>
+      <p style="margin: 0.5rem 0 1.5rem;">Your response has been successfully recorded.</p>
       <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
     </div>
   </div>
 
   <script>
-    const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const params = new URLSearchParams(window.location.search);
     const quizId = Number(params.get('id'));
-    let quiz = null;
+    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+    const quiz = quizzes.find(q => q.id === quizId);
 
-    async function loadQuiz() {
-      if (!quizId) {
-        document.getElementById('quizTitle').innerText = 'Invalid Quiz Link';
-        document.getElementById('quizForm').style.display = 'none';
-        return;
-      }
-
-      const { data, error } = await supabase.from('quizzes').select('*').eq('id', quizId).single();
-      if (error || !data) {
+    function loadQuiz() {
+      if (!quiz) {
         document.getElementById('quizTitle').innerText = 'Quiz not found!';
         document.getElementById('quizForm').style.display = 'none';
         return;
       }
 
-      quiz = data;
       document.getElementById('quizTitle').innerText = quiz.title;
       document.getElementById('quizCat').innerText = quiz.category || 'General';
       document.getElementById('quizDesc').innerText = quiz.description || '';
@@ -93,7 +81,7 @@
       });
     }
 
-    document.getElementById('quizForm').addEventListener('submit', async function(e) {
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const rowValues = [];
 
@@ -111,13 +99,14 @@
         }
       }
 
-      const { error } = await supabase.from('records').insert({
+      const records = JSON.parse(localStorage.getItem('qms_records')) || [];
+      records.push({
+        id: Date.now(),
         quiz_id: quiz.id,
         timestamp: new Date().toLocaleString(),
         values: rowValues
       });
-
-      if (error) return alert('Error submitting response: ' + error.message);
+      localStorage.setItem('qms_records', JSON.stringify(records));
 
       document.getElementById('quizCardContainer').style.display = 'none';
       document.getElementById('thankYouCard').style.display = 'block';

@@ -50,20 +50,29 @@
     const quizId = params.get('id') ? Number(params.get('id')) : null;
 
     let quiz = null;
+    let localQuizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
 
-    // 1. Read self-contained shared link parameter
+    // 1. Read self-contained shared link parameter & auto-save to dashboard
     if (quizParam) {
       try {
         const jsonStr = decodeURIComponent(atob(quizParam));
         quiz = JSON.parse(jsonStr);
+
+        // Auto-save shared quiz to local storage so it appears in the dashboard workspace
+        if (quiz && quiz.id) {
+          const exists = localQuizzes.some(q => q.id === quiz.id);
+          if (!exists) {
+            localQuizzes.push(quiz);
+            localStorage.setItem('qms_quizzes', JSON.stringify(localQuizzes));
+          }
+        }
       } catch (err) {
         console.error('Failed to decode shared quiz:', err);
       }
     } 
     // 2. Fallback to local storage if opened locally
     else if (quizId) {
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      quiz = quizzes.find(q => q.id === quizId);
+      quiz = localQuizzes.find(q => q.id === quizId);
     }
 
     if (!quiz) {

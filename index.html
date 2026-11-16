@@ -178,10 +178,6 @@
     }
 
     function renderDashboard() {
-      // DEBUG: Log localStorage keys to browser console (Press F12 -> Console to view)
-      console.log("LocalStorage Keys:", Object.keys(localStorage));
-      console.log("Saved Quizzes:", localStorage.getItem('qms_quizzes'));
-
       const quizzes = safeGetJSON('qms_quizzes', []);
       const allRecords = safeGetJSON('qms_records', {});
       const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -252,6 +248,7 @@
           </div>
           <div class="action-group">
             <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
+            <a href="create.html?id=${quiz.id}" class="btn btn-secondary">✏️ Edit</a>
             <a href="export.html?id=${quiz.id}" class="btn btn-info">📥 Table & CSV</a>
             <button type="button" onclick="copyQuizLink(${quiz.id})" class="btn btn-secondary" title="Copy Shareable Link">🔗 Share</button>
             <button type="button" onclick="deleteQuiz(${quiz.id})" class="btn btn-danger" title="Delete Quiz">🗑</button>

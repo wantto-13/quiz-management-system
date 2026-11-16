@@ -43,12 +43,28 @@
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const quizId = Number(params.get('id'));
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-    const quiz = quizzes.find(q => q.id === quizId);
+    const quizParam = params.get('quiz');
+    const quizId = params.get('id') ? Number(params.get('id')) : null;
+
+    let quiz = null;
+
+    // 1. Read self-contained shared link parameter
+    if (quizParam) {
+      try {
+        const jsonStr = decodeURIComponent(atob(quizParam));
+        quiz = JSON.parse(jsonStr);
+      } catch (err) {
+        console.error('Failed to decode shared quiz:', err);
+      }
+    } 
+    // 2. Fallback to local storage if opened locally
+    else if (quizId) {
+      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      quiz = quizzes.find(q => q.id === quizId);
+    }
 
     if (!quiz) {
-      document.getElementById('quizTitle').innerText = 'Quiz not found!';
+      document.getElementById('quizTitle').innerText = 'Quiz not found or link is invalid!';
       document.getElementById('quizCat').style.display = 'none';
       document.getElementById('quizForm').style.display = 'none';
     } else {
@@ -119,16 +135,16 @@
       }
 
       const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-      if (!allRecords[quizId]) allRecords[quizId] = [];
+      const targetId = quiz.id;
+      if (!allRecords[targetId]) allRecords[targetId] = [];
 
-      allRecords[quizId].push({
+      allRecords[targetId].push({
         timestamp: new Date().toLocaleString(),
         values: rowValues
       });
 
       localStorage.setItem('qms_records', JSON.stringify(allRecords));
 
-      // Hide quiz form card and display Thank You screen
       document.getElementById('quizCardContainer').style.display = 'none';
       document.getElementById('thankYouCard').style.display = 'block';
       window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -172,6 +172,13 @@
       </div>
       <label><b>Description / Instructions (Optional)</b></label>
       <textarea id="quizDesc" placeholder="Add brief instructions for participants..."></textarea>
+
+      <!-- Password Protection at Bottom of Creation Card -->
+      <div style="margin-top: 1rem; border-top: 1px dashed #e2e8f0; padding-top: 1rem;">
+        <label><b>🔒 Protection Password for Edit & Table/CSV (Optional)</b></label>
+        <input type="text" id="quizPassword" placeholder="Leave blank if you do not want a password">
+        <small style="color:#64748b;">If set, users will need to enter this password to edit the quiz or view/export collected responses.</small>
+      </div>
     </div>
 
     <div id="fieldsContainer"></div>
@@ -205,18 +212,27 @@
     const editQuizId = params.get('id') ? Number(params.get('id')) : null;
     let uidCounter = 0;
 
-    // Check if we are editing an existing quiz
+    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+
     if (editQuizId) {
-      document.getElementById('studioHeading').innerText = 'Edit Quiz Studio';
-      document.getElementById('saveBtnText').innerText = 'Save Changes';
-      
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
       const existing = quizzes.find(q => q.id === editQuizId);
-      
       if (existing) {
+        // Enforce password check on direct URL access for editing
+        if (existing.password) {
+          const pwd = prompt("Enter password to edit this quiz:");
+          if (pwd !== existing.password) {
+            alert("Incorrect password!");
+            window.location.href = "index.html";
+          }
+        }
+
+        document.getElementById('studioHeading').innerText = 'Edit Quiz Studio';
+        document.getElementById('saveBtnText').innerText = 'Save Changes';
+        
         document.getElementById('quizTitle').value = existing.title || '';
         document.getElementById('quizCategory').value = existing.category || 'General';
         document.getElementById('quizDesc').value = existing.description || '';
+        document.getElementById('quizPassword').value = existing.password || '';
         
         if (Array.isArray(existing.fields) && existing.fields.length > 0) {
           existing.fields.forEach(f => addField(f));
@@ -228,7 +244,6 @@
         window.location.href = 'index.html';
       }
     } else {
-      // Default starter fields for new quiz
       addField({ label: 'Full Name', type: 'text', required: true, options: [] });
       addField({ label: 'Overall Rating', type: 'rating', required: true, options: ['1','2','3','4','5'] });
     }
@@ -263,7 +278,7 @@
         <div class="field-grid">
           <div>
             <label><b>Question / CSV Column Header *</b></label>
-            <input type="text" class="f-label" value="${escapeAttr(labelVal)}" placeholder="e.g., Student Name, Roll No, Preferred Language">
+            <input type="text" class="f-label" value="${escapeAttr(labelVal)}" placeholder="e.g., Student Name, Roll No">
           </div>
           <div>
             <label><b>Data / Input Type</b></label>
@@ -406,6 +421,7 @@
         title: title,
         category: document.getElementById('quizCategory').value,
         description: document.getElementById('quizDesc').value.trim(),
+        password: document.getElementById('quizPassword').value.trim(),
         fields: fields
       };
     }
@@ -417,10 +433,8 @@
       let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
 
       if (editQuizId) {
-        // Update existing quiz
         quizzes = quizzes.map(q => q.id === editQuizId ? quizObj : q);
       } else {
-        // Push new quiz
         quizzes.push(quizObj);
       }
 

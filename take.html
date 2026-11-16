@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- Minimalist Navbar for Shared Links (No Dashboard Button) -->
+  <!-- Minimalist Navbar for Shared Links -->
   <nav>
     <span class="brand">⚡ Quiz Management System</span>
   </nav>
@@ -37,7 +37,10 @@
       <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
       <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Thank You!</h2>
       <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">Your response has been successfully recorded.</p>
-      <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
+      <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+        <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
+        <a href="index.html" class="btn btn-primary">← Back to Dashboard</a>
+      </div>
     </div>
   </div>
 

@@ -42,6 +42,16 @@
     const quizId = Number(params.get('id'));
     const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
     const quiz = quizzes.find(q => q.id === quizId);
+
+    // Enforce password security on direct URL load
+    if (quiz && quiz.password) {
+      const pwd = prompt("Enter password to view Table & CSV data:");
+      if (pwd !== quiz.password) {
+        alert("Incorrect password!");
+        window.location.href = "index.html";
+      }
+    }
+
     let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
     let records = allRecords[quizId] || [];
 

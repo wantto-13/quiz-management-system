@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Give Quiz - Quiz Management System</title>
+  <title>Take Quiz - Quiz Management System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+  <!-- Minimalist Navbar for Shared Links (No Dashboard Button) -->
   <nav>
-    <a href="index.html" class="brand">⚡ Quiz Management System</a>
-    <a href="index.html">← Dashboard</a>
+    <span class="brand">⚡ Quiz Management System</span>
   </nav>
 
   <div class="container">
-    <div class="card" style="border-top: 5px solid #4f46e5;">
+    <div class="card" id="quizCardContainer" style="border-top: 5px solid #4f46e5;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <h2 id="quizTitle" style="margin:0;">Loading...</h2>
         <span id="quizCat" class="badge">General</span>
@@ -30,6 +30,14 @@
           Submit Response
         </button>
       </form>
+    </div>
+
+    <!-- Thank You Success Card (Hidden until submission) -->
+    <div id="thankYouCard" class="card" style="display:none; text-align:center; padding: 4rem 2rem; border-top: 5px solid #10b981;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+      <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Thank You!</h2>
+      <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">Your response has been successfully recorded.</p>
+      <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
     </div>
   </div>
 
@@ -120,8 +128,10 @@
 
       localStorage.setItem('qms_records', JSON.stringify(allRecords));
 
-      alert('Response recorded into database!');
-      window.location.href = `export.html?id=${quizId}`;
+      // Hide quiz form card and display Thank You screen
+      document.getElementById('quizCardContainer').style.display = 'none';
+      document.getElementById('thankYouCard').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   </script>
 </body>

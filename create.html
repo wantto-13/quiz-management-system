@@ -52,26 +52,41 @@
   <script>
     const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    let supabase = null;
+    try {
+      if (window.supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch (e) {
+      console.error("Supabase init error:", e);
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('id') ? Number(urlParams.get('id')) : null;
     let fields = [];
 
     async function init() {
-      if (editId) {
-        document.getElementById('pageTitle').innerText = 'Edit Cloud Quiz';
-        const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', editId).single();
-        if (quiz) {
-          document.getElementById('titleInput').value = quiz.title;
-          document.getElementById('descInput').value = quiz.description || '';
-          document.getElementById('categoryInput').value = quiz.category || 'General';
-          document.getElementById('passwordInput').value = quiz.password || '';
-          fields = quiz.fields || [];
-          renderFields();
+      try {
+        if (editId && supabase) {
+          document.getElementById('pageTitle').innerText = 'Edit Cloud Quiz';
+          const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', editId).single();
+          if (quiz) {
+            document.getElementById('titleInput').value = quiz.title;
+            document.getElementById('descInput').value = quiz.description || '';
+            document.getElementById('categoryInput').value = quiz.category || 'General';
+            document.getElementById('passwordInput').value = quiz.password || '';
+            fields = quiz.fields || [];
+          }
         }
-      } else {
+      } catch (err) {
+        console.error("Error loading quiz for edit:", err);
+      }
+
+      if (fields.length === 0) {
         addField();
+      } else {
+        renderFields();
       }
     }
 
@@ -134,7 +149,7 @@
             <b>Question #${idx + 1}</b>
             <button onclick="removeField(${idx})" class="btn btn-danger" style="padding:4px 8px; font-size:12px;">Delete Question</button>
           </div>
-          <input type="text" placeholder="Question label / prompt..." value="${f.label}" oninput="updateField(${idx}, 'label', this.value)">
+          <input type="text" placeholder="Question label / prompt..." value="${f.label || ''}" oninput="updateField(${idx}, 'label', this.value)">
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <div style="flex:1;">
               <label style="font-size:12px;">Answer Type:</label>
@@ -172,6 +187,8 @@
         password: document.getElementById('passwordInput').value.trim(),
         fields
       };
+
+      if (!supabase) return alert('Database connection not established.');
 
       const { error } = await supabase.from('quizzes').upsert(quizData);
       if (error) {

@@ -3,32 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Database & CSV Export - Quiz Management System</title>
+  <title>Responses & CSV Table - Quiz Management System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
   <nav>
-    <a href="index.html" class="brand">📋 Quiz Management System</a>
-    <a href="index.html">← Dashboard</a>
+    <a href="index.html" class="brand">⚡ Quiz Management System</a>
+    <a href="index.html">← Back to Dashboard</a>
   </nav>
 
   <div class="container">
-    <div class="card">
-      <div class="quiz-row">
+    <div class="card" style="border-top: 5px solid #4f46e5;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
-          <h2 id="tableTitle">Database Table</h2>
-          <p id="rowSummary">0 Rows Collected</p>
+          <h2 id="quizTitle" style="margin:0;">Loading Table...</h2>
+          <p id="recordCountText" style="color:#64748b; font-size:13.5px; margin-top:4px;"></p>
         </div>
         <div>
-          <button onclick="downloadCSV()" class="btn btn-success">⬇ Download CSV File</button>
-          <button onclick="clearTableData()" class="btn btn-danger">Clear Rows</button>
+          <button onclick="downloadCSV()" class="btn btn-success">📥 Download CSV</button>
+          <button onclick="clearAllResponses()" class="btn btn-danger">🗑 Clear All Responses</button>
         </div>
       </div>
+    </div>
 
+    <div class="card">
+      <h3>Collected Responses Database</h3>
       <div class="table-wrapper">
         <table id="dataTable">
-          <thead id="tableHead"></thead>
+          <thead><tr id="tableHeader"></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -40,71 +42,97 @@
     const quizId = Number(params.get('id'));
     const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
     const quiz = quizzes.find(q => q.id === quizId);
-
-    const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-    const rows = allRecords[quizId] || [];
+    let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+    let records = allRecords[quizId] || [];
 
     function renderTable() {
       if (!quiz) {
-        document.getElementById('tableTitle').innerText = 'Quiz not found!';
+        document.getElementById('quizTitle').innerText = 'Quiz not found!';
+        return;
+      }
+      document.getElementById('quizTitle').innerText = quiz.title + ' — Data Table';
+      document.getElementById('recordCountText').innerText = `Total Rows Collected: ${records.length}`;
+
+      const headerRow = document.getElementById('tableHeader');
+      const bodyRow = document.getElementById('tableBody');
+
+      let htmlHeaders = `<th>#</th><th>Timestamp</th>`;
+      quiz.fields.forEach(f => {
+        htmlHeaders += `<th>${escapeHTML(f.label)}</th>`;
+      });
+      htmlHeaders += `<th>Action</th>`;
+      headerRow.innerHTML = htmlHeaders;
+
+      if (records.length === 0) {
+        bodyRow.innerHTML = `<tr><td colspan="${quiz.fields.length + 3}" style="text-align:center; color:#64748b; padding:2rem;">No responses collected yet. Share the quiz link to collect data!</td></tr>`;
         return;
       }
 
-      document.getElementById('tableTitle').innerText = `Database: ${quiz.title}`;
-      document.getElementById('rowSummary').innerText = `Total Records: ${rows.length}`;
+      let htmlBody = '';
+      records.forEach((rec, index) => {
+        htmlBody += `<tr>
+          <td><b>${index + 1}</b></td>
+          <td><span style="color:#64748b; font-size:12px;">${escapeHTML(rec.timestamp)}</span></td>`;
+        
+        quiz.fields.forEach((f, fIdx) => {
+          const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
+          htmlBody += `<td>${escapeHTML(val)}</td>`;
+        });
 
-      // Build Headers
-      const headers = ['Row_ID', 'Timestamp', ...quiz.fields.map(f => f.label)];
-      document.getElementById('tableHead').innerHTML =
-        `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+        htmlBody += `<td><button onclick="deleteRow(${index})" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0;">🗑 Delete</button></td>`;
+        htmlBody += `</tr>`;
+      });
+      bodyRow.innerHTML = htmlBody;
+    }
 
-      // Build Rows
-      const tbody = document.getElementById('tableBody');
-      if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${headers.length}">No responses yet. Go to "Give Quiz" to collect data.</td></tr>`;
-        return;
-      }
+    function deleteRow(rowIndex) {
+      if (!confirm(`Delete row #${rowIndex + 1}?`)) return;
+      records.splice(rowIndex, 1);
+      allRecords[quizId] = records;
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+      renderTable();
+    }
 
-      tbody.innerHTML = rows.map((row, index) => {
-        const cells = [index + 1, row.timestamp, ...row.values];
-        return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
-      }).join('');
+    function clearAllResponses() {
+      if (!confirm('Clear all collected responses for this quiz?')) return;
+      records = [];
+      allRecords[quizId] = [];
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+      renderTable();
     }
 
     function downloadCSV() {
-      if (!quiz || rows.length === 0) {
-        return alert('No data rows available to export!');
+      if (records.length === 0) {
+        return alert('No data available to download.');
       }
+      let csvRows = [];
+      let headers = ['Row', 'Timestamp'];
+      quiz.fields.forEach(f => headers.push(`"${f.label.replace(/"/g, '""')}"`));
+      csvRows.push(headers.join(','));
 
-      // Escape values safely for CSV format
-      const escapeCSV = (val) => `"${String(val).replace(/"/g, '""')}"`;
-
-      const headers = ['Row_ID', 'Timestamp', ...quiz.fields.map(f => f.label)];
-      const csvLines = [headers.map(escapeCSV).join(',')];
-
-      rows.forEach((row, index) => {
-        const line = [index + 1, row.timestamp, ...row.values];
-        csvLines.push(line.map(escapeCSV).join(','));
+      records.forEach((rec, index) => {
+        let row = [index + 1, `"${rec.timestamp}"`];
+        quiz.fields.forEach((f, fIdx) => {
+          const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
+          row.push(`"${String(val).replace(/"/g, '""')}"`);
+        });
+        csvRows.push(row.join(','));
       });
 
-      const csvContent = csvLines.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      const fileName = quiz.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_data.csv';
-      link.setAttribute('href', url);
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `${quiz.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.csv`);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
-    function clearTableData() {
-      if (!confirm('Clear all collected responses for this quiz?')) return;
-      allRecords[quizId] = [];
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-      location.reload();
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
     }
 
     renderTable();

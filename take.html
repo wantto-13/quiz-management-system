@@ -24,8 +24,8 @@
       <form id="quizForm">
         <div id="questionsList"></div>
         <button type="submit" class="btn-create" style="margin-top:10px;">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:4px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
           Submit Response
         </button>
@@ -36,7 +36,7 @@
     <div id="thankYouCard" class="card" style="display:none; text-align:center; padding: 4rem 2rem; border-top: 5px solid #10b981;">
       <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
       <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Thank You!</h2>
-      <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">Your response has been successfully recorded.</p>
+      <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">Your response has been successfully recorded in the cloud.</p>
       <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
         <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
         <a href="index.html" class="btn btn-primary">← Back to Dashboard</a>
@@ -45,87 +45,88 @@
   </div>
 
   <script>
+    const SHEETDB_URL = 'https://sheetdb.io/api/v1/q8x7kiy49blc5';
     const params = new URLSearchParams(window.location.search);
-    const quizParam = params.get('quiz');
     const quizId = params.get('id') ? Number(params.get('id')) : null;
 
     let quiz = null;
-    let localQuizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
 
-    // 1. Read self-contained shared link parameter & auto-save to dashboard
-    if (quizParam) {
-      try {
-        const jsonStr = decodeURIComponent(atob(quizParam));
-        quiz = JSON.parse(jsonStr);
-
-        // Auto-save shared quiz to local storage so it appears in the dashboard workspace
-        if (quiz && quiz.id) {
-          const exists = localQuizzes.some(q => q.id === quiz.id);
-          if (!exists) {
-            localQuizzes.push(quiz);
-            localStorage.setItem('qms_quizzes', JSON.stringify(localQuizzes));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to decode shared quiz:', err);
+    async function loadQuizFromCloud() {
+      if (!quizId) {
+        document.getElementById('quizTitle').innerText = 'Invalid Quiz Link';
+        document.getElementById('quizCat').style.display = 'none';
+        document.getElementById('quizForm').style.display = 'none';
+        return;
       }
-    } 
-    // 2. Fallback to local storage if opened locally
-    else if (quizId) {
-      quiz = localQuizzes.find(q => q.id === quizId);
-    }
 
-    if (!quiz) {
-      document.getElementById('quizTitle').innerText = 'Quiz not found or link is invalid!';
-      document.getElementById('quizCat').style.display = 'none';
-      document.getElementById('quizForm').style.display = 'none';
-    } else {
-      document.getElementById('quizTitle').innerText = quiz.title;
-      document.getElementById('quizCat').innerText = quiz.category || 'General';
-      document.getElementById('quizDesc').innerText = quiz.description || '';
-
-      const container = document.getElementById('questionsList');
-
-      quiz.fields.forEach((field, idx) => {
-        const box = document.createElement('div');
-        box.className = 'card';
-        box.style.background = '#f8fafc';
-        const reqAttr = field.required !== false ? 'required' : '';
-        const reqMark = field.required !== false
-          ? '<span style="color:#ef4444;">*</span>'
-          : '<span style="color:#64748b; font-size:12px;">(Optional)</span>';
-
-        let inputHTML = '';
-        if (field.type === 'text') {
-          inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter your answer..." ${reqAttr}>`;
-        } else if (field.type === 'paragraph') {
-          inputHTML = `<textarea name="col_${idx}" rows="3" style="width:100%; padding:10px; border-radius:9px; border:1.5px solid #e2e8f0; margin-top:6px;" placeholder="Write detailed response..." ${reqAttr}></textarea>`;
-        } else if (field.type === 'number') {
-          inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter a number..." ${reqAttr}>`;
-        } else if (field.type === 'checkbox') {
-          field.options.forEach(opt => {
-            inputHTML += `
-              <label class="option-label">
-                <input type="checkbox" name="col_${idx}" value="${opt}" style="accent-color:#4f46e5; width:16px; height:16px;"> ${opt}
-              </label>`;
-          });
-        } else {
-          field.options.forEach(opt => {
-            const display = field.type === 'rating' ? `${opt} ★` : opt;
-            inputHTML += `
-              <label class="option-label">
-                <input type="radio" name="col_${idx}" value="${opt}" ${reqAttr}> ${display}
-              </label>`;
-          });
+      try {
+        const res = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+          document.getElementById('quizTitle').innerText = 'Quiz not found!';
+          document.getElementById('quizCat').style.display = 'none';
+          document.getElementById('quizForm').style.display = 'none';
+          return;
         }
 
-        box.innerHTML = `<p><b>${idx + 1}. ${field.label}</b> ${reqMark}</p>${inputHTML}`;
-        container.appendChild(box);
-      });
+        quiz = data[0];
+        // Parse the stored JSON string back to an array of field objects
+        quiz.fields = quiz.fields ? JSON.parse(quiz.fields) : [];
+
+        document.getElementById('quizTitle').innerText = quiz.title;
+        document.getElementById('quizCat').innerText = quiz.category || 'General';
+        document.getElementById('quizDesc').innerText = quiz.description || '';
+
+        const container = document.getElementById('questionsList');
+
+        quiz.fields.forEach((field, idx) => {
+          const box = document.createElement('div');
+          box.className = 'card';
+          box.style.background = '#f8fafc';
+          const reqAttr = field.required !== false ? 'required' : '';
+          const reqMark = field.required !== false
+            ? '<span style="color:#ef4444;">*</span>'
+            : '<span style="color:#64748b; font-size:12px;">(Optional)</span>';
+
+          let inputHTML = '';
+          if (field.type === 'text') {
+            inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter your answer..." ${reqAttr}>`;
+          } else if (field.type === 'paragraph') {
+            inputHTML = `<textarea name="col_${idx}" rows="3" style="width:100%; padding:10px; border-radius:9px; border:1.5px solid #e2e8f0; margin-top:6px;" placeholder="Write detailed response..." ${reqAttr}></textarea>`;
+          } else if (field.type === 'number') {
+            inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter a number..." ${reqAttr}>`;
+          } else if (field.type === 'checkbox') {
+            (field.options || []).forEach(opt => {
+              inputHTML += `
+                <label class="option-label" style="display:block; margin-top:6px; cursor:pointer;">
+                  <input type="checkbox" name="col_${idx}" value="${escapeAttr(opt)}" style="accent-color:#4f46e5; width:16px; height:16px; margin-right:8px;"> ${escapeHTML(opt)}
+                </label>`;
+            });
+          } else {
+            (field.options || []).forEach(opt => {
+              const display = field.type === 'rating' ? `${escapeHTML(opt)} ★` : escapeHTML(opt);
+              inputHTML += `
+                <label class="option-label" style="display:block; margin-top:6px; cursor:pointer;">
+                  <input type="radio" name="col_${idx}" value="${escapeAttr(opt)}" ${reqAttr} style="margin-right:8px;"> ${display}
+                </label>`;
+            });
+          }
+
+          box.innerHTML = `<p><b>${idx + 1}. ${escapeHTML(field.label)}</b> ${reqMark}</p>${inputHTML}`;
+          container.appendChild(box);
+        });
+
+      } catch (err) {
+        console.error('Failed to load quiz from Google Sheet:', err);
+        document.getElementById('quizTitle').innerText = 'Error loading quiz from cloud.';
+        document.getElementById('quizForm').style.display = 'none';
+      }
     }
 
-    document.getElementById('quizForm').addEventListener('submit', function(e) {
+    document.getElementById('quizForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+      if (!quiz) return;
 
       const rowValues = [];
       for (let idx = 0; idx < quiz.fields.length; idx++) {
@@ -133,7 +134,8 @@
         const isReq = field.required !== false;
 
         if (field.type === 'text' || field.type === 'paragraph' || field.type === 'number') {
-          rowValues.push(document.querySelector(`[name="col_${idx}"]`).value.trim());
+          const val = document.querySelector(`[name="col_${idx}"]`).value.trim();
+          rowValues.push(val);
         } else if (field.type === 'checkbox') {
           const checked = Array.from(document.querySelectorAll(`input[name="col_${idx}"]:checked`)).map(el => el.value);
           if (isReq && checked.length === 0) {
@@ -146,21 +148,38 @@
         }
       }
 
-      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-      const targetId = quiz.id;
-      if (!allRecords[targetId]) allRecords[targetId] = [];
-
-      allRecords[targetId].push({
+      const recordData = {
+        id: Date.now(),
+        quiz_id: quiz.id,
         timestamp: new Date().toLocaleString(),
-        values: rowValues
-      });
+        values: JSON.stringify(rowValues)
+      };
 
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+      try {
+        const res = await fetch(`${SHEETDB_URL}?sheet=records`, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: recordData })
+        });
 
-      document.getElementById('quizCardContainer').style.display = 'none';
-      document.getElementById('thankYouCard').style.display = 'block';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!res.ok) throw new Error('Server response failed');
+
+        document.getElementById('quizCardContainer').style.display = 'none';
+        document.getElementById('thankYouCard').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (err) {
+        alert('Error submitting response to Google Sheet: ' + err.message);
+      }
     });
+
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function escapeAttr(str) {
+      return String(str || '').replace(/"/g, '&quot;');
+    }
+
+    loadQuizFromCloud();
   </script>
 </body>
 </html>

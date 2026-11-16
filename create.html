@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create / Edit Quiz - QMS</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <nav>
@@ -15,7 +14,7 @@
 
   <div class="container">
     <div class="card" style="border-top: 5px solid #4f46e5;">
-      <h2 id="pageTitle" style="margin-bottom:1rem;">Create Cloud Quiz</h2>
+      <h2 id="pageTitle" style="margin-bottom:1rem;">Create New Quiz</h2>
       
       <label><b>Quiz Title *</b></label>
       <input type="text" id="titleInput" placeholder="e.g. CS101 Midterm Survey">
@@ -46,48 +45,29 @@
       <button onclick="addField()" class="btn btn-secondary" style="margin-top:10px;">+ Add Question Field</button>
     </div>
 
-    <button onclick="saveQuiz()" class="btn-create" style="width:100%; justify-content:center; padding:12px;">Save Quiz to Cloud</button>
+    <button onclick="saveQuiz()" class="btn-create" style="width:100%; justify-content:center; padding:12px;">Save Quiz</button>
   </div>
 
   <script>
-    const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
-    
-    let supabase = null;
-    try {
-      if (window.supabase) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      }
-    } catch (e) {
-      console.error("Supabase init error:", e);
-    }
-
     const urlParams = new URLSearchParams(window.location.search);
     const editId = urlParams.get('id') ? Number(urlParams.get('id')) : null;
     let fields = [];
 
-    async function init() {
-      try {
-        if (editId && supabase) {
-          document.getElementById('pageTitle').innerText = 'Edit Cloud Quiz';
-          const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', editId).single();
-          if (quiz) {
-            document.getElementById('titleInput').value = quiz.title;
-            document.getElementById('descInput').value = quiz.description || '';
-            document.getElementById('categoryInput').value = quiz.category || 'General';
-            document.getElementById('passwordInput').value = quiz.password || '';
-            fields = quiz.fields || [];
-          }
+    function init() {
+      if (editId) {
+        document.getElementById('pageTitle').innerText = 'Edit Quiz';
+        const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+        const quiz = quizzes.find(q => q.id === editId);
+        if (quiz) {
+          document.getElementById('titleInput').value = quiz.title;
+          document.getElementById('descInput').value = quiz.description || '';
+          document.getElementById('categoryInput').value = quiz.category || 'General';
+          document.getElementById('passwordInput').value = quiz.password || '';
+          fields = quiz.fields || [];
         }
-      } catch (err) {
-        console.error("Error loading quiz for edit:", err);
       }
-
-      if (fields.length === 0) {
-        addField();
-      } else {
-        renderFields();
-      }
+      if (fields.length === 0) addField();
+      else renderFields();
     }
 
     function addField() {
@@ -174,10 +154,12 @@
       });
     }
 
-    async function saveQuiz() {
+    function saveQuiz() {
       const title = document.getElementById('titleInput').value.trim();
       if (!title) return alert('Please enter a quiz title.');
       if (fields.length === 0) return alert('Add at least one question field.');
+
+      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
 
       const quizData = {
         id: editId || Date.now(),
@@ -188,20 +170,13 @@
         fields
       };
 
-      if (!supabase) return alert('Database connection not established.');
-
-      const { error } = await supabase.from('quizzes').upsert(quizData);
-      if (error) {
-        alert('Error saving to cloud database: ' + error.message);
-        return;
+      if (editId) {
+        quizzes = quizzes.map(q => q.id === editId ? quizData : q);
+      } else {
+        quizzes.push(quizData);
       }
 
-      if (!editId) {
-        let myIds = JSON.parse(localStorage.getItem('qms_my_quiz_ids')) || [];
-        myIds.push(quizData.id);
-        localStorage.setItem('qms_my_quiz_ids', JSON.stringify(myIds));
-      }
-
+      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
       window.location.href = 'index.html';
     }
 

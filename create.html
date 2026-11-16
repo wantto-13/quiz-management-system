@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Quiz Studio - Quiz Management System</title>
+  <title>Quiz Studio - Quiz Management System</title>
   <link rel="stylesheet" href="style.css">
   <style>
     .builder-header-card {
@@ -124,7 +124,6 @@
       border-color: #4f46e5;
       box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
     }
-    /* Preview Modal */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -153,8 +152,8 @@
   </nav>
 
   <div class="container">
-    <!-- Quiz Metadata Card -->
     <div class="card builder-header-card">
+      <h2 id="studioHeading">Create New Quiz Studio</h2>
       <div class="meta-grid">
         <div>
           <label><b>Quiz / Database Table Title *</b></label>
@@ -175,10 +174,8 @@
       <textarea id="quizDesc" placeholder="Add brief instructions for participants..."></textarea>
     </div>
 
-    <!-- Dynamic Questions Container -->
     <div id="fieldsContainer"></div>
 
-    <!-- Floating Bottom Toolbar -->
     <div class="sticky-toolbar">
       <div>
         <button type="button" class="btn btn-secondary" onclick="addField()">+ Add Question / Column</button>
@@ -188,12 +185,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
         </svg>
-        Publish Quiz & Create Table
+        <span id="saveBtnText">Publish Quiz & Create Table</span>
       </button>
     </div>
   </div>
 
-  <!-- Live Preview Modal -->
   <div id="previewModal" class="modal-backdrop">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -205,7 +201,37 @@
   </div>
 
   <script>
+    const params = new URLSearchParams(window.location.search);
+    const editQuizId = params.get('id') ? Number(params.get('id')) : null;
     let uidCounter = 0;
+
+    // Check if we are editing an existing quiz
+    if (editQuizId) {
+      document.getElementById('studioHeading').innerText = 'Edit Quiz Studio';
+      document.getElementById('saveBtnText').innerText = 'Save Changes';
+      
+      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      const existing = quizzes.find(q => q.id === editQuizId);
+      
+      if (existing) {
+        document.getElementById('quizTitle').value = existing.title || '';
+        document.getElementById('quizCategory').value = existing.category || 'General';
+        document.getElementById('quizDesc').value = existing.description || '';
+        
+        if (Array.isArray(existing.fields) && existing.fields.length > 0) {
+          existing.fields.forEach(f => addField(f));
+        } else {
+          addField();
+        }
+      } else {
+        alert('Quiz not found for editing.');
+        window.location.href = 'index.html';
+      }
+    } else {
+      // Default starter fields for new quiz
+      addField({ label: 'Full Name', type: 'text', required: true, options: [] });
+      addField({ label: 'Overall Rating', type: 'rating', required: true, options: ['1','2','3','4','5'] });
+    }
 
     function addField(preset = null) {
       uidCounter++;
@@ -218,7 +244,7 @@
 
       const labelVal = preset ? preset.label : '';
       const typeVal = preset ? preset.type : 'text';
-      const reqVal = preset ? preset.required : true;
+      const reqVal = preset ? (preset.required !== false) : true;
       const opts = (preset && preset.options && preset.options.length)
         ? preset.options
         : ['Option 1', 'Option 2'];
@@ -293,7 +319,7 @@
         paragraph: 'Collects multi-line feedback in CSV.',
         number: 'Validates numeric input only.',
         mcq: 'Participant picks one option.',
-        checkbox: 'Participant can pick multiple options (saved semicolon-separated in CSV).',
+        checkbox: 'Participant can pick multiple options.',
         rating: 'Displays 1★ to 5★ scale.'
       };
       hint.innerText = hints[type] || '';
@@ -376,7 +402,7 @@
       }
 
       return {
-        id: Date.now(),
+        id: editQuizId ? editQuizId : Date.now(),
         title: title,
         category: document.getElementById('quizCategory').value,
         description: document.getElementById('quizDesc').value.trim(),
@@ -388,10 +414,17 @@
       const quizObj = buildQuizObject();
       if (!quizObj) return;
 
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      quizzes.push(quizObj);
-      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
+      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
 
+      if (editQuizId) {
+        // Update existing quiz
+        quizzes = quizzes.map(q => q.id === editQuizId ? quizObj : q);
+      } else {
+        // Push new quiz
+        quizzes.push(quizObj);
+      }
+
+      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
       window.location.href = 'index.html';
     }
 
@@ -436,10 +469,6 @@
     function escapeAttr(str) {
       return String(str).replace(/"/g, '&quot;');
     }
-
-    // Initialize with 2 helpful starter columns
-    addField({ label: 'Full Name', type: 'text', required: true, options: [] });
-    addField({ label: 'Overall Rating', type: 'rating', required: true, options: ['1','2','3','4','5'] });
   </script>
 </body>
 </html>

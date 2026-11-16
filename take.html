@@ -60,18 +60,18 @@
       }
 
       try {
-        const res = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const res = await fetch(`${SHEETDB_URL}?sheet=quizzes`);
         const data = await res.json();
+        const quizObj = Array.isArray(data) ? data.find(q => Number(q.id) === Number(quizId)) : null;
         
-        if (!data || data.length === 0) {
+        if (!quizObj) {
           document.getElementById('quizTitle').innerText = 'Quiz not found!';
           document.getElementById('quizCat').style.display = 'none';
           document.getElementById('quizForm').style.display = 'none';
           return;
         }
 
-        quiz = data[0];
-        // Parse the stored JSON string back to an array of field objects
+        quiz = quizObj;
         quiz.fields = quiz.fields ? JSON.parse(quiz.fields) : [];
 
         document.getElementById('quizTitle').innerText = quiz.title;

@@ -93,8 +93,8 @@
   <nav>
     <a href="index.html" class="brand">⚡ Quiz Management System</a>
     <a href="create.html" class="btn-create">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:4px;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
       </svg>
       Create New Quiz
     </a>
@@ -172,10 +172,10 @@
 
     async function secureEdit(quizId) {
       try {
-        const res = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const res = await fetch(`${SHEETDB_URL}?sheet=quizzes`);
         const data = await res.json();
-        if (!data || data.length === 0) return alert('Quiz not found!');
-        const quiz = data[0];
+        const quiz = Array.isArray(data) ? data.find(q => Number(q.id) === Number(quizId)) : null;
+        if (!quiz) return alert('Quiz not found!');
 
         if (quiz.password) {
           const pwd = prompt("Enter password to edit this quiz:");
@@ -192,10 +192,10 @@
 
     async function secureExport(quizId) {
       try {
-        const res = await fetch(`${SHEETDB_URL}/id/${quizId}?sheet=quizzes`);
+        const res = await fetch(`${SHEETDB_URL}?sheet=quizzes`);
         const data = await res.json();
-        if (!data || data.length === 0) return alert('Quiz not found!');
-        const quiz = data[0];
+        const quiz = Array.isArray(data) ? data.find(q => Number(q.id) === Number(quizId)) : null;
+        if (!quiz) return alert('Quiz not found!');
 
         if (quiz.password) {
           const pwd = prompt("Enter password to view Table & CSV:");
@@ -223,8 +223,8 @@
             <h3>No quizzes created on this device yet</h3>
             <p style="color:#64748b; margin-bottom:1.3rem;">Build your first cloud quiz or data collection form using the button above.</p>
             <a href="create.html" class="btn-create">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:4px;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Create First Quiz
             </a>
@@ -284,8 +284,8 @@
               </p>
               ${isEmptyWorkspace ? `
                 <a href="create.html" class="btn-create">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:4px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                   Create First Quiz
                 </a>` : ''}

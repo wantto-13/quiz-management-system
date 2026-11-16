@@ -3,31 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Responses & CSV Table - Quiz Management System</title>
+  <title>Responses & CSV Table - QMS</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <nav>
     <a href="index.html" class="brand">⚡ Quiz Management System</a>
-    <a href="index.html">← Back to Dashboard</a>
+    <a href="index.html">← Dashboard</a>
   </nav>
 
   <div class="container">
     <div class="card" style="border-top: 5px solid #4f46e5;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
-          <h2 id="quizTitle" style="margin:0;">Loading Table...</h2>
+          <h2 id="quizTitle" style="margin:0;">Loading Cloud Data...</h2>
           <p id="recordCountText" style="color:#64748b; font-size:13.5px; margin-top:4px;"></p>
         </div>
         <div>
-          <button onclick="downloadCSV()" class="btn btn-success">📥 Download CSV</button>
-          <button onclick="clearAllResponses()" class="btn btn-danger">🗑 Clear All Responses</button>
+          <button onclick="downloadCSV()" class="btn btn-success">📥 Download Clean CSV</button>
+          <button onclick="clearAllResponses()" class="btn btn-danger">🗑 Clear All</button>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h3>Collected Responses Database</h3>
+      <h3>Live Responses Database</h3>
       <div class="table-wrapper">
         <table id="dataTable">
           <thead><tr id="tableHeader"></tr></thead>
@@ -38,28 +39,42 @@
   </div>
 
   <script>
+    const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     const params = new URLSearchParams(window.location.search);
     const quizId = Number(params.get('id'));
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-    const quiz = quizzes.find(q => q.id === quizId);
+    let quiz = null;
+    let records = [];
 
-    // Enforce password security on direct URL load
-    if (quiz && quiz.password) {
-      const pwd = prompt("Enter password to view Table & CSV data:");
-      if (pwd !== quiz.password) {
-        alert("Incorrect password!");
-        window.location.href = "index.html";
-      }
-    }
-
-    let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-    let records = allRecords[quizId] || [];
-
-    function renderTable() {
-      if (!quiz) {
+    async function init() {
+      const { data: quizData } = await supabase.from('quizzes').select('*').eq('id', quizId).single();
+      if (!quizData) {
         document.getElementById('quizTitle').innerText = 'Quiz not found!';
         return;
       }
+      quiz = quizData;
+
+      if (quiz.password) {
+        const pwd = prompt("Enter password to view responses:");
+        if (pwd !== quiz.password) {
+          alert("Incorrect password!");
+          window.location.href = "index.html";
+          return;
+        }
+      }
+
+      await loadRecords();
+    }
+
+    async function loadRecords() {
+      const { data } = await supabase.from('records').select('*').eq('quiz_id', quizId);
+      records = data || [];
+      renderTable();
+    }
+
+    function renderTable() {
       document.getElementById('quizTitle').innerText = quiz.title + ' — Data Table';
       document.getElementById('recordCountText').innerText = `Total Rows Collected: ${records.length}`;
 
@@ -67,71 +82,57 @@
       const bodyRow = document.getElementById('tableBody');
 
       let htmlHeaders = `<th>#</th><th>Timestamp</th>`;
-      quiz.fields.forEach(f => {
-        htmlHeaders += `<th>${escapeHTML(f.label)}</th>`;
-      });
+      quiz.fields.forEach(f => { htmlHeaders += `<th>${escapeHTML(f.label)}</th>`; });
       htmlHeaders += `<th>Action</th>`;
       headerRow.innerHTML = htmlHeaders;
 
       if (records.length === 0) {
-        bodyRow.innerHTML = `<tr><td colspan="${quiz.fields.length + 3}" style="text-align:center; color:#64748b; padding:2rem;">No responses collected yet. Share the quiz link to collect data!</td></tr>`;
+        bodyRow.innerHTML = `<tr><td colspan="${quiz.fields.length + 3}" style="text-align:center; padding:2rem;">No responses collected yet. Share your quiz link!</td></tr>`;
         return;
       }
 
       let htmlBody = '';
       records.forEach((rec, index) => {
-        htmlBody += `<tr>
-          <td><b>${index + 1}</b></td>
-          <td><span style="color:#64748b; font-size:12px;">${escapeHTML(rec.timestamp)}</span></td>`;
-        
+        htmlBody += `<tr><td><b>${index + 1}</b></td><td><span style="font-size:12px;">${escapeHTML(rec.timestamp)}</span></td>`;
         quiz.fields.forEach((f, fIdx) => {
           const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
           htmlBody += `<td>${escapeHTML(val)}</td>`;
         });
-
-        htmlBody += `<td><button onclick="deleteRow(${index})" class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0;">🗑 Delete</button></td>`;
+        htmlBody += `<td><button onclick="deleteRow(${rec.id})" class="btn btn-danger" style="padding:4px 8px; font-size:11px;">🗑</button></td>`;
         htmlBody += `</tr>`;
       });
       bodyRow.innerHTML = htmlBody;
     }
 
-    function deleteRow(rowIndex) {
-      if (!confirm(`Delete row #${rowIndex + 1}?`)) return;
-      records.splice(rowIndex, 1);
-      allRecords[quizId] = records;
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-      renderTable();
+    async function deleteRow(recordId) {
+      if (!confirm('Delete this row?')) return;
+      await supabase.from('records').delete().eq('id', recordId);
+      loadRecords();
     }
 
-    function clearAllResponses() {
-      if (!confirm('Clear all collected responses for this quiz?')) return;
-      records = [];
-      allRecords[quizId] = [];
-      localStorage.setItem('qms_records', JSON.stringify(allRecords));
-      renderTable();
+    async function clearAllResponses() {
+      if (!confirm('Clear all responses for this quiz?')) return;
+      await supabase.from('records').delete().eq('quiz_id', quizId);
+      loadRecords();
     }
 
     function escapeCSV(val) {
       if (val === null || val === undefined) return '';
       const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
       }
       return str;
     }
 
     function downloadCSV() {
-      if (records.length === 0) {
-        return alert('No data available to download.');
-      }
+      if (records.length === 0) return alert('No data available.');
       let csvRows = [];
-      
-      // Export ONLY the quiz fields/questions as headers (No Row/Timestamp)
       let headers = [];
       quiz.fields.forEach(f => headers.push(escapeCSV(f.label)));
       csvRows.push(headers.join(','));
 
-      records.forEach((rec) => {
+      records.forEach(rec => {
         let row = [];
         quiz.fields.forEach((f, fIdx) => {
           const val = rec.values && rec.values[fIdx] !== undefined ? rec.values[fIdx] : '';
@@ -143,20 +144,18 @@
       const blob = new Blob(['\ufeff' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `${quiz.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.csv`);
+      a.href = url;
+      a.download = `${quiz.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     }
 
     function escapeHTML(str) {
-      return String(str || '').replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[m]));
+      return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
 
-    renderTable();
+    init();
   </script>
 </body>
 </html>

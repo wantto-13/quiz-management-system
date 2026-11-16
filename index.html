@@ -50,7 +50,15 @@
   <script>
     const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    let supabase = null;
+    try {
+      if (window.supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch (e) {
+      console.error("Supabase init error:", e);
+    }
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -63,84 +71,89 @@
       const myIds = JSON.parse(localStorage.getItem('qms_my_quiz_ids')) || [];
       const listEl = document.getElementById('quizList');
       
-      if (myIds.length === 0) {
+      if (myIds.length === 0 || !supabase) {
         listEl.innerHTML = `<div class="card" style="text-align:center; padding:3rem;"><h3>No quizzes created on this device yet</h3><p style="margin:1rem 0;">Build your first cloud-synced quiz now.</p><a href="create.html" class="btn-create">Create Quiz</a></div>`;
         document.getElementById('statQuizzes').innerText = 0;
         document.getElementById('statRows').innerText = 0;
         return;
       }
 
-      const { data: quizzes, error } = await supabase.from('quizzes').select('*').in('id', myIds);
-      const { data: allRecords } = await supabase.from('records').select('quiz_id');
+      try {
+        const { data: quizzes, error } = await supabase.from('quizzes').select('*').in('id', myIds);
+        const { data: allRecords } = await supabase.from('records').select('quiz_id');
 
-      if (error || !quizzes) {
-        listEl.innerHTML = `<div class="card"><p style="color:red;">Error loading quizzes from cloud database.</p></div>`;
-        return;
-      }
+        if (error || !quizzes) {
+          listEl.innerHTML = `<div class="card"><p style="color:red;">Error loading quizzes from cloud database.</p></div>`;
+          return;
+        }
 
-      let totalRowsCount = allRecords ? allRecords.length : 0;
-      document.getElementById('statQuizzes').innerText = quizzes.length;
-      document.getElementById('statRows').innerText = totalRowsCount;
+        let totalRowsCount = allRecords ? allRecords.length : 0;
+        document.getElementById('statQuizzes').innerText = quizzes.length;
+        document.getElementById('statRows').innerText = totalRowsCount;
 
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const catFilter = document.getElementById('categoryFilter').value;
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const catFilter = document.getElementById('categoryFilter').value;
 
-      const filtered = quizzes.filter(q => {
-        const matchesSearch = (q.title || '').toLowerCase().includes(search);
-        const matchesCat = catFilter === 'ALL' || (q.category || 'General') === catFilter;
-        return matchesSearch && matchesCat;
-      });
+        const filtered = quizzes.filter(q => {
+          const matchesSearch = (q.title || '').toLowerCase().includes(search);
+          const matchesCat = catFilter === 'ALL' || (q.category || 'General') === catFilter;
+          return matchesSearch && matchesCat;
+        });
 
-      if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="card" style="text-align:center; padding:2rem;"><p>No matching quizzes found.</p></div>`;
-        return;
-      }
+        if (filtered.length === 0) {
+          listEl.innerHTML = `<div class="card" style="text-align:center; padding:2rem;"><p>No matching quizzes found.</p></div>`;
+          return;
+        }
 
-      listEl.innerHTML = '';
-      filtered.reverse().forEach(quiz => {
-        const rowCount = allRecords ? allRecords.filter(r => r.quiz_id === quiz.id).length : 0;
-        const lock = quiz.password ? ' 🔒' : '';
+        listEl.innerHTML = '';
+        filtered.reverse().forEach(quiz => {
+          const rowCount = allRecords ? allRecords.filter(r => r.quiz_id === quiz.id).length : 0;
+          const lock = quiz.password ? ' 🔒' : '';
 
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.display = 'flex';
-        card.style.justifyContent = 'space-between';
-        card.style.alignItems = 'center';
-        card.style.flexWrap = 'wrap';
-        card.style.gap = '1rem';
-        card.style.borderLeft = '5px solid #4f46e5';
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.display = 'flex';
+          card.style.justifyContent = 'space-between';
+          card.style.alignItems = 'center';
+          card.style.flexWrap = 'wrap';
+          card.style.gap = '1rem';
+          card.style.borderLeft = '5px solid #4f46e5';
 
-        card.innerHTML = `
-          <div style="flex:1; min-width:240px;">
-            <h3>${escapeHTML(quiz.title)}${lock} <span class="badge">${escapeHTML(quiz.category || 'General')}</span></h3>
-            <p style="font-size:13px; margin:4px 0 8px;">${escapeHTML(quiz.description || '')}</p>
-            <div>
-              <span class="badge">📊 ${quiz.fields.length} Columns</span>
-              <span class="badge badge-green">🗂️ ${rowCount} Rows</span>
+          card.innerHTML = `
+            <div style="flex:1; min-width:240px;">
+              <h3>${escapeHTML(quiz.title)}${lock} <span class="badge">${escapeHTML(quiz.category || 'General')}</span></h3>
+              <p style="font-size:13px; margin:4px 0 8px;">${escapeHTML(quiz.description || '')}</p>
+              <div>
+                <span class="badge">📊 ${quiz.fields.length} Columns</span>
+                <span class="badge badge-green">🗂️ ${rowCount} Rows</span>
+              </div>
             </div>
-          </div>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <a href="take.html?id=${quiz.id}" class="btn btn-primary" target="_blank">▶ Take</a>
-            <button onclick="secureAction(${quiz.id}, 'create')" class="btn btn-secondary">✏️ Edit</button>
-            <button onclick="secureAction(${quiz.id}, 'export')" class="btn btn-success">📥 CSV</button>
-            <button onclick="copyLink(${quiz.id})" class="btn btn-secondary">🔗 Share</button>
-            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑</button>
-          </div>
-        `;
-        listEl.appendChild(card);
-      });
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <a href="take.html?id=${quiz.id}" class="btn btn-primary" target="_blank">▶ Take</a>
+              <button onclick="secureAction(${quiz.id}, 'create')" class="btn btn-secondary">✏️ Edit</button>
+              <button onclick="secureAction(${quiz.id}, 'export')" class="btn btn-success">📥 CSV</button>
+              <button onclick="copyLink(${quiz.id})" class="btn btn-secondary">🔗 Share</button>
+              <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑</button>
+            </div>
+          `;
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        console.error("Dashboard render error:", err);
+        listEl.innerHTML = `<div class="card"><p style="color:red;">Failed to connect to cloud database.</p></div>`;
+      }
     }
 
-    function secureAction(id, type) {
-      supabase.from('quizzes').select('password').eq('id', id).single().then(({data}) => {
-        if (data && data.password) {
-          const pwd = prompt(`Enter password for this quiz:`);
-          if (pwd !== data.password) {
-            return alert('Incorrect password!');
-          }
+    async function secureAction(id, type) {
+      if (!supabase) return;
+      const { data } = await supabase.from('quizzes').select('password').eq('id', id).single();
+      if (data && data.password) {
+        const pwd = prompt(`Enter password for this quiz:`);
+        if (pwd !== data.password) {
+          return alert('Incorrect password!');
         }
-        window.location.href = `${type}.html?id=${id}`;
-      });
+      }
+      window.location.href = `${type}.html?id=${id}`;
     }
 
     async function copyLink(id) {
@@ -157,6 +170,7 @@
     }
 
     async function deleteQuiz(id) {
+      if (!supabase) return;
       const { data } = await supabase.from('quizzes').select('password').eq('id', id).single();
       if (data && data.password) {
         const pwd = prompt('Enter password to delete quiz and its responses:');

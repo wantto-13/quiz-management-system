@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Take Quiz - QMS</title>
+  <title>Take Quiz - Quiz Management System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Minimalist Navbar for Shared Links -->
   <nav>
     <span class="brand">⚡ Quiz Management System</span>
   </nav>
@@ -14,65 +16,106 @@
   <div class="container">
     <div class="card" id="quizCardContainer" style="border-top: 5px solid #4f46e5;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-        <h2 id="quizTitle" style="margin:0;">Loading Quiz...</h2>
+        <h2 id="quizTitle" style="margin:0;">Loading...</h2>
         <span id="quizCat" class="badge">General</span>
       </div>
       <p id="quizDesc" style="color:#64748b; margin-top:8px; margin-bottom:1.2rem;"></p>
 
       <form id="quizForm">
         <div id="questionsList"></div>
-        <button type="submit" class="btn-create" style="margin-top:10px;">Submit Response</button>
+        <button type="submit" class="btn-create" style="margin-top:10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          Submit Response
+        </button>
       </form>
     </div>
 
+    <!-- Thank You Success Card (Hidden until submission) -->
     <div id="thankYouCard" class="card" style="display:none; text-align:center; padding: 4rem 2rem; border-top: 5px solid #10b981;">
       <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
-      <h2>Thank You!</h2>
-      <p style="margin: 0.5rem 0 1.5rem;">Your response has been successfully recorded.</p>
-      <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
+      <h2 style="color: #0f172a; margin-bottom: 0.5rem;">Thank You!</h2>
+      <p style="color: #64748b; font-size: 1.05rem; margin-bottom: 1.5rem;">Your response has been successfully recorded.</p>
+      <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+        <button onclick="window.location.reload()" class="btn btn-secondary">Submit Another Response</button>
+        <a href="index.html" class="btn btn-primary">← Back to Dashboard</a>
+      </div>
     </div>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const quizId = Number(params.get('id'));
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-    const quiz = quizzes.find(q => q.id === quizId);
+    const quizParam = params.get('quiz');
+    const quizId = params.get('id') ? Number(params.get('id')) : null;
 
-    function loadQuiz() {
-      if (!quiz) {
-        document.getElementById('quizTitle').innerText = 'Quiz not found!';
-        document.getElementById('quizForm').style.display = 'none';
-        return;
+    let quiz = null;
+    let localQuizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+
+    // 1. Read self-contained shared link parameter & auto-save to dashboard
+    if (quizParam) {
+      try {
+        const jsonStr = decodeURIComponent(atob(quizParam));
+        quiz = JSON.parse(jsonStr);
+
+        // Auto-save shared quiz to local storage so it appears in the dashboard workspace
+        if (quiz && quiz.id) {
+          const exists = localQuizzes.some(q => q.id === quiz.id);
+          if (!exists) {
+            localQuizzes.push(quiz);
+            localStorage.setItem('qms_quizzes', JSON.stringify(localQuizzes));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to decode shared quiz:', err);
       }
+    } 
+    // 2. Fallback to local storage if opened locally
+    else if (quizId) {
+      quiz = localQuizzes.find(q => q.id === quizId);
+    }
 
+    if (!quiz) {
+      document.getElementById('quizTitle').innerText = 'Quiz not found or link is invalid!';
+      document.getElementById('quizCat').style.display = 'none';
+      document.getElementById('quizForm').style.display = 'none';
+    } else {
       document.getElementById('quizTitle').innerText = quiz.title;
       document.getElementById('quizCat').innerText = quiz.category || 'General';
       document.getElementById('quizDesc').innerText = quiz.description || '';
 
       const container = document.getElementById('questionsList');
+
       quiz.fields.forEach((field, idx) => {
         const box = document.createElement('div');
         box.className = 'card';
         box.style.background = '#f8fafc';
         const reqAttr = field.required !== false ? 'required' : '';
-        const reqMark = field.required !== false ? '<span style="color:#ef4444;">*</span>' : '<span style="color:#64748b; font-size:12px;">(Optional)</span>';
+        const reqMark = field.required !== false
+          ? '<span style="color:#ef4444;">*</span>'
+          : '<span style="color:#64748b; font-size:12px;">(Optional)</span>';
 
         let inputHTML = '';
         if (field.type === 'text') {
-          inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter answer..." ${reqAttr}>`;
+          inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter your answer..." ${reqAttr}>`;
         } else if (field.type === 'paragraph') {
-          inputHTML = `<textarea name="col_${idx}" rows="3" placeholder="Write response..." ${reqAttr}></textarea>`;
+          inputHTML = `<textarea name="col_${idx}" rows="3" style="width:100%; padding:10px; border-radius:9px; border:1.5px solid #e2e8f0; margin-top:6px;" placeholder="Write detailed response..." ${reqAttr}></textarea>`;
         } else if (field.type === 'number') {
-          inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter number..." ${reqAttr}>`;
+          inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter a number..." ${reqAttr}>`;
         } else if (field.type === 'checkbox') {
-          (field.options || []).forEach(opt => {
-            inputHTML += `<label style="display:block; margin-top:6px; cursor:pointer;"><input type="checkbox" name="col_${idx}" value="${opt}" style="width:16px; height:16px; margin-right:8px;"> ${opt}</label>`;
+          field.options.forEach(opt => {
+            inputHTML += `
+              <label class="option-label">
+                <input type="checkbox" name="col_${idx}" value="${opt}" style="accent-color:#4f46e5; width:16px; height:16px;"> ${opt}
+              </label>`;
           });
         } else {
-          (field.options || []).forEach(opt => {
+          field.options.forEach(opt => {
             const display = field.type === 'rating' ? `${opt} ★` : opt;
-            inputHTML += `<label style="display:block; margin-top:6px; cursor:pointer;"><input type="radio" name="col_${idx}" value="${opt}" ${reqAttr} style="margin-right:8px;"> ${display}</label>`;
+            inputHTML += `
+              <label class="option-label">
+                <input type="radio" name="col_${idx}" value="${opt}" ${reqAttr}> ${display}
+              </label>`;
           });
         }
 
@@ -83,37 +126,41 @@
 
     document.getElementById('quizForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      const rowValues = [];
 
+      const rowValues = [];
       for (let idx = 0; idx < quiz.fields.length; idx++) {
         const field = quiz.fields[idx];
-        if (field.type === 'checkbox') {
-          const checked = Array.from(document.querySelectorAll(`input[name="col_${idx}"]:checked`)).map(el => el.value);
-          if (field.required !== false && checked.length === 0) return alert(`Please answer "${field.label}".`);
-          rowValues.push(checked.join('; '));
-        } else if (field.type === 'text' || field.type === 'paragraph' || field.type === 'number') {
+        const isReq = field.required !== false;
+
+        if (field.type === 'text' || field.type === 'paragraph' || field.type === 'number') {
           rowValues.push(document.querySelector(`[name="col_${idx}"]`).value.trim());
+        } else if (field.type === 'checkbox') {
+          const checked = Array.from(document.querySelectorAll(`input[name="col_${idx}"]:checked`)).map(el => el.value);
+          if (isReq && checked.length === 0) {
+            return alert(`Please select at least one option for "${field.label}".`);
+          }
+          rowValues.push(checked.join('; '));
         } else {
           const checked = document.querySelector(`input[name="col_${idx}"]:checked`);
           rowValues.push(checked ? checked.value : '');
         }
       }
 
-      const records = JSON.parse(localStorage.getItem('qms_records')) || [];
-      records.push({
-        id: Date.now(),
-        quiz_id: quiz.id,
+      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      const targetId = quiz.id;
+      if (!allRecords[targetId]) allRecords[targetId] = [];
+
+      allRecords[targetId].push({
         timestamp: new Date().toLocaleString(),
         values: rowValues
       });
-      localStorage.setItem('qms_records', JSON.stringify(records));
+
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
 
       document.getElementById('quizCardContainer').style.display = 'none';
       document.getElementById('thankYouCard').style.display = 'block';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-
-    loadQuiz();
   </script>
 </body>
 </html>

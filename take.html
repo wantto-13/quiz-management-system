@@ -3,88 +3,118 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Give Quiz - Quiz Management System</title>
+  <title>Quiz Management System</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <nav>
-    <a href="index.html" class="brand">📋 Quiz Management System</a>
-    <a href="index.html">← Dashboard</a>
+    <a href="index.html" class="brand">⚡ Quiz Management System</a>
+    <a href="create.html" class="btn-create">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Create New Quiz
+    </a>
   </nav>
 
   <div class="container">
-    <div class="card">
-      <h2 id="quizTitle">Loading...</h2>
-      <form id="quizForm">
-        <div id="questionsList"></div>
-        <button type="submit" class="btn btn-primary">Submit Response</button>
-      </form>
+    <div class="hero-header">
+      <div>
+        <h1>Workspace Dashboard</h1>
+        <p>Create forms, collect participant responses, and export clean CSV tables.</p>
+      </div>
+      <div style="min-width: 250px;">
+        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="margin:0;">
+      </div>
     </div>
+
+    <!-- Live Summary Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Quizzes</div>
+        <div class="stat-value" id="statQuizzes">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Rows Collected</div>
+        <div class="stat-value" id="statRows" style="color: #10b981;">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Database Engine</div>
+        <div class="stat-value" style="font-size: 1.35rem; color: #0f172a; margin-top: 10px;">CSV / LocalStorage</div>
+      </div>
+    </div>
+
+    <div id="quizList"></div>
   </div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const quizId = Number(params.get('id'));
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-    const quiz = quizzes.find(q => q.id === quizId);
+    function renderDashboard() {
+      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      const query = document.getElementById('searchInput').value.toLowerCase();
 
-    if (!quiz) {
-      document.getElementById('quizTitle').innerText = 'Quiz not found!';
-      document.getElementById('quizForm').style.display = 'none';
-    } else {
-      document.getElementById('quizTitle').innerText = quiz.title;
-      const container = document.getElementById('questionsList');
+      // Update Top Stat Cards
+      let totalRows = 0;
+      quizzes.forEach(q => totalRows += (allRecords[q.id] || []).length);
+      document.getElementById('statQuizzes').innerText = quizzes.length;
+      document.getElementById('statRows').innerText = totalRows;
 
-      quiz.fields.forEach((field, idx) => {
-        const box = document.createElement('div');
-        box.className = 'card';
-        box.style.background = '#f8fafc';
+      const list = document.getElementById('quizList');
+      list.innerHTML = '';
 
-        let inputHTML = '';
-        if (field.type === 'text') {
-          inputHTML = `<input type="text" name="col_${idx}" placeholder="Enter your answer..." required>`;
-        } else if (field.type === 'number') {
-          inputHTML = `<input type="number" step="any" name="col_${idx}" placeholder="Enter a number..." required>`;
-        } else {
-          field.options.forEach(opt => {
-            const display = field.type === 'rating' ? `${opt} ★` : opt;
-            inputHTML += `
-              <label class="option-label">
-                <input type="radio" name="col_${idx}" value="${opt}" required> ${display}
-              </label>`;
-          });
-        }
+      const filtered = quizzes.filter(q => q.title.toLowerCase().includes(query));
 
-        box.innerHTML = `<p><b>${idx + 1}. ${field.label}</b></p>${inputHTML}`;
-        container.appendChild(box);
+      if (filtered.length === 0) {
+        list.innerHTML = `
+          <div class="card" style="text-align:center; padding: 3rem 1.5rem;">
+            <h3>No quizzes found</h3>
+            <p style="color:#64748b; margin-bottom:1.2rem;">Click the button below to set up a new database table.</p>
+            <a href="create.html" class="btn-create">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Create First Quiz
+            </a>
+          </div>`;
+        return;
+      }
+
+      filtered.forEach(quiz => {
+        const recordCount = (allRecords[quiz.id] || []).length;
+        const card = document.createElement('div');
+        card.className = 'card quiz-row';
+        card.innerHTML = `
+          <div>
+            <h3>${quiz.title}</h3>
+            <span class="badge">📊 ${quiz.fields.length} Columns</span>
+            <span class="badge badge-green">🗂️ ${recordCount} Rows Collected</span>
+          </div>
+          <div>
+            <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
+            <a href="export.html?id=${quiz.id}" class="btn btn-info">📥 Table & CSV</a>
+            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑 Delete</button>
+          </div>
+        `;
+        list.appendChild(card);
       });
     }
 
-    document.getElementById('quizForm').addEventListener('submit', function(e) {
-      e.preventDefault();
+    function deleteQuiz(id) {
+      if (!confirm('Delete this quiz and all its collected table data?')) return;
 
-      const rowValues = quiz.fields.map((field, idx) => {
-        if (field.type === 'text' || field.type === 'number') {
-          return document.querySelector(`[name="col_${idx}"]`).value.trim();
-        } else {
-          return document.querySelector(`input[name="col_${idx}"]:checked`).value;
-        }
-      });
+      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      quizzes = quizzes.filter(q => q.id !== id);
+      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
 
-      const allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
-      if (!allRecords[quizId]) allRecords[quizId] = [];
-
-      allRecords[quizId].push({
-        timestamp: new Date().toLocaleString(),
-        values: rowValues
-      });
-
+      let allRecords = JSON.parse(localStorage.getItem('qms_records')) || {};
+      delete allRecords[id];
       localStorage.setItem('qms_records', JSON.stringify(allRecords));
 
-      alert('Response recorded into database!');
-      window.location.href = `export.html?id=${quizId}`;
-    });
+      renderDashboard();
+    }
+
+    renderDashboard();
   </script>
 </body>
 </html>

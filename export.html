@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Responses & CSV Table - QMS</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <nav>
@@ -17,7 +16,7 @@
     <div class="card" style="border-top: 5px solid #4f46e5;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
-          <h2 id="quizTitle" style="margin:0;">Loading Cloud Data...</h2>
+          <h2 id="quizTitle" style="margin:0;">Loading Data...</h2>
           <p id="recordCountText" style="color:#64748b; font-size:13.5px; margin-top:4px;"></p>
         </div>
         <div>
@@ -28,7 +27,7 @@
     </div>
 
     <div class="card">
-      <h3>Live Responses Database</h3>
+      <h3>Responses Table</h3>
       <div class="table-wrapper">
         <table id="dataTable">
           <thead><tr id="tableHeader"></tr></thead>
@@ -39,22 +38,16 @@
   </div>
 
   <script>
-    const SUPABASE_URL = 'https://tbkkjhiuhoqrnglhmcbb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRia2tqaGl1aG9xcm5nbGhtY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ4NTMxMzMsImV4cCI6MjExMDQyOTEzM30.OqiZYL2qUFbDvVkWb7usax0F4Ej8OVpGidEz8XkoJOA';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const params = new URLSearchParams(window.location.search);
     const quizId = Number(params.get('id'));
-    let quiz = null;
-    let records = [];
+    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+    const quiz = quizzes.find(q => q.id === quizId);
 
-    async function init() {
-      const { data: quizData } = await supabase.from('quizzes').select('*').eq('id', quizId).single();
-      if (!quizData) {
+    function init() {
+      if (!quiz) {
         document.getElementById('quizTitle').innerText = 'Quiz not found!';
         return;
       }
-      quiz = quizData;
 
       if (quiz.password) {
         const pwd = prompt("Enter password to view responses:");
@@ -65,18 +58,13 @@
         }
       }
 
-      await loadRecords();
-    }
-
-    async function loadRecords() {
-      const { data } = await supabase.from('records').select('*').eq('quiz_id', quizId);
-      records = data || [];
       renderTable();
     }
 
     function renderTable() {
       document.getElementById('quizTitle').innerText = quiz.title + ' — Data Table';
-      document.getElementById('recordCountText').innerText = `Total Rows Collected: ${records.length}`;
+      const records = (JSON.parse(localStorage.getItem('qms_records')) || []).filter(r => r.quiz_id === quizId);
+      document.getElementById('recordCountText').innerText = `Total Responses: ${records.length}`;
 
       const headerRow = document.getElementById('tableHeader');
       const bodyRow = document.getElementById('tableBody');
@@ -87,7 +75,7 @@
       headerRow.innerHTML = htmlHeaders;
 
       if (records.length === 0) {
-        bodyRow.innerHTML = `<tr><td colspan="${quiz.fields.length + 3}" style="text-align:center; padding:2rem;">No responses collected yet. Share your quiz link!</td></tr>`;
+        bodyRow.innerHTML = `<tr><td colspan="${quiz.fields.length + 3}" style="text-align:center; padding:2rem;">No responses collected yet.</td></tr>`;
         return;
       }
 
@@ -104,16 +92,20 @@
       bodyRow.innerHTML = htmlBody;
     }
 
-    async function deleteRow(recordId) {
+    function deleteRow(recordId) {
       if (!confirm('Delete this row?')) return;
-      await supabase.from('records').delete().eq('id', recordId);
-      loadRecords();
+      let records = JSON.parse(localStorage.getItem('qms_records')) || [];
+      records = records.filter(r => r.id !== recordId);
+      localStorage.setItem('qms_records', JSON.stringify(records));
+      renderTable();
     }
 
-    async function clearAllResponses() {
+    function clearAllResponses() {
       if (!confirm('Clear all responses for this quiz?')) return;
-      await supabase.from('records').delete().eq('quiz_id', quizId);
-      loadRecords();
+      let records = JSON.parse(localStorage.getItem('qms_records')) || [];
+      records = records.filter(r => r.quiz_id !== quizId);
+      localStorage.setItem('qms_records', JSON.stringify(records));
+      renderTable();
     }
 
     function escapeCSV(val) {
@@ -126,7 +118,9 @@
     }
 
     function downloadCSV() {
+      const records = (JSON.parse(localStorage.getItem('qms_records')) || []).filter(r => r.quiz_id === quizId);
       if (records.length === 0) return alert('No data available.');
+      
       let csvRows = [];
       let headers = [];
       quiz.fields.forEach(f => headers.push(escapeCSV(f.label)));

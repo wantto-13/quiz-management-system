@@ -5,159 +5,321 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quiz Management System - Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      margin: 0;
+    }
+    .quiz-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-left: 5px solid #4f46e5;
+      border-radius: 14px;
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+      transition: all 0.2s ease;
+    }
+    .quiz-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      border-color: #cbd5e1;
+    }
+    .quiz-meta {
+      flex: 1;
+      min-width: 240px;
+    }
+    .quiz-desc {
+      color: #64748b;
+      font-size: 0.88rem;
+      margin: 4px 0 8px;
+    }
+    .cat-pill {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .action-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .action-group .btn {
+      margin: 0;
+    }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      z-index: 300;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
 </head>
 <body>
+
   <nav>
     <a href="index.html" class="brand">⚡ Quiz Management System</a>
-    <a href="create.html" class="btn-create">Create New Quiz</a>
+    <a href="create.html" class="btn-create">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Create New Quiz
+    </a>
   </nav>
 
   <div class="container">
     <div class="hero-header">
       <div>
         <h1>Workspace Dashboard</h1>
-        <p>Manage your quizzes, share links, and export responses.</p>
+        <p>Manage quizzes, share forms, and export structured CSV database tables.</p>
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <select id="categoryFilter" onchange="renderDashboard()" style="width: 170px;">
+      <div class="filter-bar">
+        <select id="categoryFilter" onchange="renderDashboard()" style="width: 175px;">
           <option value="ALL">All Categories</option>
           <option value="General">General</option>
           <option value="Academic Quiz">Academic Quiz</option>
           <option value="Data Survey">Data Survey</option>
+          <option value="Event Registration">Event Registration</option>
           <option value="Feedback">Feedback</option>
         </select>
-        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="width: 200px; margin:0;">
+        <input type="text" id="searchInput" placeholder="🔍 Search quizzes..." onkeyup="renderDashboard()" style="width: 220px;">
       </div>
     </div>
 
+    <!-- Live Summary Stats -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-label">Total Quizzes</div>
+        <div class="stat-label">Active Quizzes</div>
         <div class="stat-value" id="statQuizzes">0</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Responses Collected</div>
+        <div class="stat-label">Total Rows Collected</div>
         <div class="stat-value" id="statRows" style="color: #10b981;">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Columns Defined</div>
+        <div class="stat-value" id="statCols" style="color: #0ea5e9;">0</div>
       </div>
     </div>
 
+    <!-- Quiz List Container -->
     <div id="quizList"></div>
   </div>
 
-  <div id="toast" class="toast">Link copied!</div>
+  <!-- Notification Toast -->
+  <div id="toast" class="toast">Link copied to clipboard!</div>
 
   <script>
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.innerText = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
-    }
-
-    function renderDashboard() {
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      const records = JSON.parse(localStorage.getItem('qms_records')) || [];
-      const listEl = document.getElementById('quizList');
-
-      document.getElementById('statQuizzes').innerText = quizzes.length;
-      document.getElementById('statRows').innerText = records.length;
-
-      if (quizzes.length === 0) {
-        listEl.innerHTML = `<div class="card" style="text-align:center; padding:3rem;"><h3>No quizzes created yet</h3><p style="margin:1rem 0;">Build your first quiz now.</p><a href="create.html" class="btn-create">Create Quiz</a></div>`;
-        return;
+    function safeGetJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (err) {
+        console.error(`Storage read error for ${key}:`, err);
+        return fallback;
       }
-
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const catFilter = document.getElementById('categoryFilter').value;
-
-      const filtered = quizzes.filter(q => {
-        const matchesSearch = (q.title || '').toLowerCase().includes(search);
-        const matchesCat = catFilter === 'ALL' || (q.category || 'General') === catFilter;
-        return matchesSearch && matchesCat;
-      });
-
-      if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="card" style="text-align:center; padding:2rem;"><p>No matching quizzes found.</p></div>`;
-        return;
-      }
-
-      listEl.innerHTML = '';
-      filtered.reverse().forEach(quiz => {
-        const rowCount = records.filter(r => r.quiz_id === quiz.id).length;
-        const lock = quiz.password ? ' 🔒' : '';
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.display = 'flex';
-        card.style.justifyContent = 'space-between';
-        card.style.alignItems = 'center';
-        card.style.flexWrap = 'wrap';
-        card.style.gap = '1rem';
-        card.style.borderLeft = '5px solid #4f46e5';
-
-        card.innerHTML = `
-          <div style="flex:1; min-width:240px;">
-            <h3>${escapeHTML(quiz.title)}${lock} <span class="badge">${escapeHTML(quiz.category || 'General')}</span></h3>
-            <p style="font-size:13px; margin:4px 0 8px;">${escapeHTML(quiz.description || '')}</p>
-            <div>
-              <span class="badge">📊 ${quiz.fields.length} Columns</span>
-              <span class="badge badge-green">🗂️ ${rowCount} Rows</span>
-            </div>
-          </div>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <a href="take.html?id=${quiz.id}" class="btn btn-primary" target="_blank">▶ Take</a>
-            <button onclick="secureAction(${quiz.id}, 'create')" class="btn btn-secondary">✏️ Edit</button>
-            <button onclick="secureAction(${quiz.id}, 'export')" class="btn btn-success">📥 CSV</button>
-            <button onclick="copyLink(${quiz.id})" class="btn btn-secondary">🔗 Share</button>
-            <button onclick="deleteQuiz(${quiz.id})" class="btn btn-danger">🗑</button>
-          </div>
-        `;
-        listEl.appendChild(card);
-      });
-    }
-
-    function secureAction(id, type) {
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      const quiz = quizzes.find(q => q.id === id);
-      if (quiz && quiz.password) {
-        const pwd = prompt(`Enter password for this quiz:`);
-        if (pwd !== quiz.password) {
-          return alert('Incorrect password!');
-        }
-      }
-      window.location.href = `${type}.html?id=${id}`;
-    }
-
-    function copyLink(id) {
-      const url = new URL(`take.html?id=${id}`, window.location.href).href;
-      navigator.clipboard.writeText(url);
-      showToast('✅ Link copied to clipboard!');
-    }
-
-    function deleteQuiz(id) {
-      const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
-      const quiz = quizzes.find(q => q.id === id);
-      if (quiz && quiz.password) {
-        const pwd = prompt('Enter password to delete quiz and responses:');
-        if (pwd !== quiz.password) {
-          return alert('Incorrect password!');
-        }
-      }
-      if (!confirm('Permanently delete quiz and its responses?')) return;
-
-      const updatedQuizzes = quizzes.filter(q => q.id !== id);
-      localStorage.setItem('qms_quizzes', JSON.stringify(updatedQuizzes));
-
-      let records = JSON.parse(localStorage.getItem('qms_records')) || [];
-      records = records.filter(r => r.quiz_id !== id);
-      localStorage.setItem('qms_records', JSON.stringify(records));
-
-      showToast('🗑 Quiz deleted');
-      renderDashboard();
     }
 
     function escapeHTML(str) {
-      return String(str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.innerText = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function copyQuizLink(quizId) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return alert('Quiz not found!');
+
+      try {
+        const jsonStr = JSON.stringify(quiz);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        const shareUrl = new URL(`take.html?quiz=${encoded}`, window.location.href).href;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl)
+            .then(() => showToast('✅ Self-contained quiz link copied!'))
+            .catch(() => prompt('Copy this quiz link:', shareUrl));
+        } else {
+          prompt('Copy this quiz link:', shareUrl);
+        }
+      } catch (err) {
+        console.error('Error encoding quiz link:', err);
+        alert('Could not generate share link.');
+      }
+    }
+
+    function secureEdit(quizId) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return;
+
+      if (quiz.password) {
+        const pwd = prompt("Enter password to edit this quiz:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+      window.location.href = `create.html?id=${quizId}`;
+    }
+
+    function secureExport(quizId) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === quizId);
+      if (!quiz) return;
+
+      if (quiz.password) {
+        const pwd = prompt("Enter password to view Table & CSV:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+      window.location.href = `export.html?id=${quizId}`;
+    }
+
+    function renderDashboard() {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const allRecords = safeGetJSON('qms_records', {});
+      const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
+      const selectedCategory = document.getElementById('categoryFilter').value;
+
+      let totalRows = 0;
+      let totalCols = 0;
+      quizzes.forEach(q => {
+        const fieldsArr = Array.isArray(q.fields) ? q.fields : [];
+        const recsArr = Array.isArray(allRecords[q.id]) ? allRecords[q.id] : [];
+        totalCols += fieldsArr.length;
+        totalRows += recsArr.length;
+      });
+
+      document.getElementById('statQuizzes').innerText = quizzes.length;
+      document.getElementById('statRows').innerText = totalRows;
+      document.getElementById('statCols').innerText = totalCols;
+
+      const list = document.getElementById('quizList');
+      list.innerHTML = '';
+
+      const filtered = quizzes.filter(q => {
+        const titleMatch = (q.title || '').toLowerCase().includes(searchQuery);
+        const cat = q.category || 'General';
+        const catMatch = (selectedCategory === 'ALL') || (cat === selectedCategory);
+        return titleMatch && catMatch;
+      });
+
+      if (filtered.length === 0) {
+        const isEmptyWorkspace = quizzes.length === 0;
+        list.innerHTML = `
+          <div class="card" style="text-align:center; padding: 3.2rem 1.5rem;">
+            <h3>${isEmptyWorkspace ? 'No quizzes created yet' : 'No matching quizzes found'}</h3>
+            <p style="color:#64748b; margin-bottom:1.3rem;">
+              ${isEmptyWorkspace
+                ? 'Build your first quiz or data collection form using the button above.'
+                : 'Try clearing your search text or switching the category filter.'}
+            </p>
+            ${isEmptyWorkspace ? `
+              <a href="create.html" class="btn-create">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Create First Quiz
+              </a>` : ''}
+          </div>`;
+        return;
+      }
+
+      [...filtered].reverse().forEach(quiz => {
+        const fieldsCount = Array.isArray(quiz.fields) ? quiz.fields.length : 0;
+        const recordCount = Array.isArray(allRecords[quiz.id]) ? allRecords[quiz.id].length : 0;
+        const category = escapeHTML(quiz.category || 'General');
+        const descHTML = quiz.description
+          ? `<p class="quiz-desc">${escapeHTML(quiz.description)}</p>`
+          : '';
+        const lockIcon = quiz.password ? ' 🔒' : '';
+
+        const card = document.createElement('div');
+        card.className = 'quiz-card';
+        card.innerHTML = `
+          <div class="quiz-meta">
+            <h3>${escapeHTML(quiz.title)}${lockIcon} <span class="cat-pill">${category}</span></h3>
+            ${descHTML}
+            <div>
+              <span class="badge">📊 ${fieldsCount} Columns</span>
+              <span class="badge badge-green">🗂️ ${recordCount} Rows Collected</span>
+            </div>
+          </div>
+          <div class="action-group">
+            <a href="take.html?id=${quiz.id}" class="btn btn-primary">▶ Give Quiz</a>
+            <button type="button" onclick="secureEdit(${quiz.id})" class="btn btn-secondary">✏️ Edit</button>
+            <button type="button" onclick="secureExport(${quiz.id})" class="btn btn-info">📥 Table & CSV</button>
+            <button type="button" onclick="copyQuizLink(${quiz.id})" class="btn btn-secondary" title="Copy Shareable Link">🔗 Share</button>
+            <button type="button" onclick="deleteQuiz(${quiz.id})" class="btn btn-danger" title="Delete Quiz">🗑</button>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function deleteQuiz(id) {
+      const quizzes = safeGetJSON('qms_quizzes', []);
+      const quiz = quizzes.find(q => q.id === id);
+      if (quiz && quiz.password) {
+        const pwd = prompt("Enter password to delete this quiz:");
+        if (pwd !== quiz.password) {
+          return alert("Incorrect password!");
+        }
+      }
+
+      if (!confirm('Delete this quiz and all its collected table data permanently?')) return;
+
+      let updatedQuizzes = quizzes.filter(q => q.id !== id);
+      localStorage.setItem('qms_quizzes', JSON.stringify(updatedQuizzes));
+
+      let allRecords = safeGetJSON('qms_records', {});
+      delete allRecords[id];
+      localStorage.setItem('qms_records', JSON.stringify(allRecords));
+
+      showToast('🗑 Quiz deleted');
+      renderDashboard();
     }
 
     renderDashboard();

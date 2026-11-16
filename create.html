@@ -189,10 +189,10 @@
         <button type="button" class="btn btn-info" onclick="openPreview()">👁 Live Preview</button>
       </div>
       <button type="button" class="btn-create" onclick="saveQuiz()">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:4px;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
-        <span id="saveBtnText">Publish Quiz & Create Table</span>
+        <span id="saveBtnText">Publish Quiz to Cloud</span>
       </button>
     </div>
   </div>
@@ -208,44 +208,55 @@
   </div>
 
   <script>
+    const SHEETDB_URL = 'https://sheetdb.io/api/v1/q8x7kiy49blc5';
     const params = new URLSearchParams(window.location.search);
     const editQuizId = params.get('id') ? Number(params.get('id')) : null;
     let uidCounter = 0;
 
-    const quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+    async function init() {
+      if (editQuizId) {
+        try {
+          const res = await fetch(`${SHEETDB_URL}/id/${editQuizId}?sheet=quizzes`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const existing = data[0];
 
-    if (editQuizId) {
-      const existing = quizzes.find(q => q.id === editQuizId);
-      if (existing) {
-        // Enforce password check on direct URL access for editing
-        if (existing.password) {
-          const pwd = prompt("Enter password to edit this quiz:");
-          if (pwd !== existing.password) {
-            alert("Incorrect password!");
-            window.location.href = "index.html";
+            if (existing.password) {
+              const pwd = prompt("Enter password to edit this quiz:");
+              if (pwd !== existing.password) {
+                alert("Incorrect password!");
+                window.location.href = "index.html";
+                return;
+              }
+            }
+
+            document.getElementById('studioHeading').innerText = 'Edit Quiz Studio';
+            document.getElementById('saveBtnText').innerText = 'Save Changes';
+            
+            document.getElementById('quizTitle').value = existing.title || '';
+            document.getElementById('quizCategory').value = existing.category || 'General';
+            document.getElementById('quizDesc').value = existing.description || '';
+            document.getElementById('quizPassword').value = existing.password || '';
+            
+            const parsedFields = existing.fields ? JSON.parse(existing.fields) : [];
+            if (Array.isArray(parsedFields) && parsedFields.length > 0) {
+              parsedFields.forEach(f => addField(f));
+            } else {
+              addField();
+            }
+          } else {
+            alert('Quiz not found for editing.');
+            window.location.href = 'index.html';
           }
-        }
-
-        document.getElementById('studioHeading').innerText = 'Edit Quiz Studio';
-        document.getElementById('saveBtnText').innerText = 'Save Changes';
-        
-        document.getElementById('quizTitle').value = existing.title || '';
-        document.getElementById('quizCategory').value = existing.category || 'General';
-        document.getElementById('quizDesc').value = existing.description || '';
-        document.getElementById('quizPassword').value = existing.password || '';
-        
-        if (Array.isArray(existing.fields) && existing.fields.length > 0) {
-          existing.fields.forEach(f => addField(f));
-        } else {
-          addField();
+        } catch (e) {
+          console.error('Error loading quiz:', e);
+          alert('Could not load quiz from cloud.');
+          window.location.href = 'index.html';
         }
       } else {
-        alert('Quiz not found for editing.');
-        window.location.href = 'index.html';
+        addField({ label: 'Full Name', type: 'text', required: true, options: [] });
+        addField({ label: 'Overall Rating', type: 'rating', required: true, options: ['1','2','3','4','5'] });
       }
-    } else {
-      addField({ label: 'Full Name', type: 'text', required: true, options: [] });
-      addField({ label: 'Overall Rating', type: 'rating', required: true, options: ['1','2','3','4','5'] });
     }
 
     function addField(preset = null) {
@@ -422,34 +433,49 @@
         category: document.getElementById('quizCategory').value,
         description: document.getElementById('quizDesc').value.trim(),
         password: document.getElementById('quizPassword').value.trim(),
-        fields: fields
+        fields: JSON.stringify(fields)
       };
     }
 
-    function saveQuiz() {
+    async function saveQuiz() {
       const quizObj = buildQuizObject();
       if (!quizObj) return;
 
-      let quizzes = JSON.parse(localStorage.getItem('qms_quizzes')) || [];
+      try {
+        if (editQuizId) {
+          await fetch(`${SHEETDB_URL}/id/${editQuizId}?sheet=quizzes`, {
+            method: 'PUT',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: quizObj })
+          });
+        } else {
+          await fetch(`${SHEETDB_URL}?sheet=quizzes`, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: quizObj })
+          });
+          
+          let myIds = JSON.parse(localStorage.getItem('qms_my_quiz_ids')) || [];
+          myIds.push(quizObj.id);
+          localStorage.setItem('qms_my_quiz_ids', JSON.stringify(myIds));
+        }
 
-      if (editQuizId) {
-        quizzes = quizzes.map(q => q.id === editQuizId ? quizObj : q);
-      } else {
-        quizzes.push(quizObj);
+        window.location.href = 'index.html';
+      } catch (err) {
+        alert('Error saving to Google Sheet: ' + err.message);
       }
-
-      localStorage.setItem('qms_quizzes', JSON.stringify(quizzes));
-      window.location.href = 'index.html';
     }
 
     function openPreview() {
       const quizObj = buildQuizObject();
       if (!quizObj) return;
 
+      const fieldsArr = JSON.parse(quizObj.fields);
+
       let html = `<h3>${escapeHTML(quizObj.title)} <span class="badge">${escapeHTML(quizObj.category)}</span></h3>`;
       if (quizObj.description) html += `<p style="color:#64748b; margin-bottom:1rem;">${escapeHTML(quizObj.description)}</p>`;
 
-      quizObj.fields.forEach((f, idx) => {
+      fieldsArr.forEach((f, idx) => {
         html += `<div class="card" style="background:#f8fafc; padding:1rem;">
           <p><b>${idx + 1}. ${escapeHTML(f.label)}</b> ${f.required ? '<span style="color:#ef4444;">*</span>' : '<span style="color:#64748b; font-size:12px;">(Optional)</span>'}</p>`;
 
@@ -458,11 +484,11 @@
         else if (f.type === 'number') html += `<input type="number" disabled placeholder="0">`;
         else if (f.type === 'mcq' || f.type === 'rating') {
           f.options.forEach(o => {
-            html += `<label class="option-label"><input type="radio" disabled> ${escapeHTML(f.type === 'rating' ? o + ' ★' : o)}</label>`;
+            html += `<label class="option-label" style="display:block; margin-top:4px;"><input type="radio" disabled> ${escapeHTML(f.type === 'rating' ? o + ' ★' : o)}</label>`;
           });
         } else if (f.type === 'checkbox') {
           f.options.forEach(o => {
-            html += `<label class="option-label"><input type="checkbox" disabled> ${escapeHTML(o)}</label>`;
+            html += `<label class="option-label" style="display:block; margin-top:4px;"><input type="checkbox" disabled> ${escapeHTML(o)}</label>`;
           });
         }
         html += `</div>`;
@@ -483,6 +509,8 @@
     function escapeAttr(str) {
       return String(str).replace(/"/g, '&quot;');
     }
+
+    init();
   </script>
 </body>
 </html>
